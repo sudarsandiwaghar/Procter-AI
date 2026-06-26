@@ -1,0 +1,6 @@
+{
+  "name": "ProctorAI",
+  "description": "Intelligent Examination Platform with real-time browser-based camera verification and automated proctoring simulation.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
