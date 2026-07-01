@@ -56,6 +56,7 @@ export default function App() {
   // Global Navigation & View States
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState("hero");
+  const [hoveredTable, setHoveredTable] = useState<string | null>(null);
 
   // Authentication & Login States
   const [userRole, setUserRole] = useState<"guest" | "student" | "admin">("guest");
@@ -98,14 +99,14 @@ export default function App() {
 
   // Terminal & Sandbox Live logs
   const [logs, setLogs] = useState<Log[]>([
-    { id: "1", time: "14:23:05", studentId: "STU-2041", event: "Face Not Detected", level: "HIGH", model: "OpenCV Haar", ref: "Frame #1823" },
-    { id: "2", time: "14:23:19", studentId: "STU-2041", event: "Multiple Faces (2 Detected)", level: "HIGH", model: "YOLOv8", ref: "Frame #1994" },
-    { id: "3", time: "14:28:44", studentId: "STU-2072", event: "Gaze: LEFT > 4s", level: "MED", model: "MediaPipe Mesh", ref: "Frame #2887" },
-    { id: "4", time: "14:31:07", studentId: "STU-2087", event: "Head Turned (Yaw: 38°)", level: "MED", model: "MediaPipe+OCV", ref: "Frame #3211" },
-    { id: "5", time: "14:35:23", studentId: "STU-2041", event: "Mobile Phone Detected", level: "HIGH", model: "YOLOv8 Phone", ref: "Frame #3891" },
-    { id: "6", time: "14:38:44", studentId: "STU-2055", event: "Tab Switch Detected", level: "MED", model: "Browser API", ref: "Frame #4102" },
+    { id: "1", time: "14:23:05", studentId: "STU-2041", event: "Face Not Detected", level: "HIGH", model: "MediaPipe Face", ref: "Frame #1823" },
+    { id: "2", time: "14:23:19", studentId: "STU-2041", event: "Multiple Faces (2 Detected)", level: "HIGH", model: "TensorFlow.js Multi-Face", ref: "Frame #1994" },
+    { id: "3", time: "14:28:44", studentId: "STU-2072", event: "Gaze: LEFT > 4s", level: "MED", model: "MediaPipe GazeMesh", ref: "Frame #2887" },
+    { id: "4", time: "14:31:07", studentId: "STU-2087", event: "Head Turned (Yaw: 38°)", level: "MED", model: "MediaPipe FaceMesh", ref: "Frame #3211" },
+    { id: "5", time: "14:35:23", studentId: "STU-2041", event: "Mobile Phone Detected", level: "HIGH", model: "TensorFlow.js MobileNet", ref: "Frame #3891" },
+    { id: "6", time: "14:38:44", studentId: "STU-2055", event: "Tab Switch Detected", level: "MED", model: "Browser visibility API", ref: "Frame #4102" },
     { id: "7", time: "14:42:11", studentId: "STU-2063", event: "Noise Detected (82dB)", level: "LOW", model: "Web Audio API", ref: "Frame #4720" },
-    { id: "8", time: "14:44:52", studentId: "STU-2041", event: "Face Not Detected", level: "HIGH", model: "OpenCV Haar", ref: "Frame #5092" }
+    { id: "8", time: "14:44:52", studentId: "STU-2041", event: "Face Not Detected", level: "HIGH", model: "MediaPipe Face", ref: "Frame #5092" }
   ]);
 
   // Selected Interactive Proctoring Grid Item for detail view
@@ -2166,12 +2167,12 @@ export default function App() {
                 {/* Database box */}
                 <rect x="50" y="260" width="200" height="60" rx="12" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.1)" />
                 <text x="150" y="284" fill="#EBEBEB" fontSize="12" fontFamily="Newsreader" textAnchor="middle" fontWeight="bold">Relational Database</text>
-                <text x="150" y="300" fill="rgba(235,235,235,0.4)" fontSize="9" fontFamily="Space Grotesk" textAnchor="middle" letterSpacing="0.1em">MySQL / USER ACCOUNT DATA</text>
+                <text x="150" y="300" fill="rgba(235,235,235,0.4)" fontSize="9" fontFamily="Space Grotesk" textAnchor="middle" letterSpacing="0.1em">POSTGRESQL / USER & EXAM DATA</text>
 
                 {/* AI Core box */}
                 <rect x="290" y="260" width="200" height="60" rx="12" fill="rgba(16,185,129,0.03)" stroke="#10B981" strokeWidth="1.5" />
                 <text x="390" y="284" fill="currentColor" className="text-emerald-400" fontSize="12" fontFamily="Newsreader" textAnchor="middle" fontWeight="bold">AI Engine Modules</text>
-                <text x="390" y="300" fill="rgba(235,235,235,0.4)" fontSize="9" fontFamily="Space Grotesk" textAnchor="middle" letterSpacing="0.1em">YOLOv8 · OpenCV · MediaPipe</text>
+                <text x="390" y="300" fill="rgba(235,235,235,0.4)" fontSize="9" fontFamily="Space Grotesk" textAnchor="middle" letterSpacing="0.1em">TensorFlow.js · MediaPipe · GPT-4o</text>
 
                 {/* File storage box */}
                 <rect x="530" y="260" width="200" height="60" rx="12" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.1)" />
@@ -2219,6 +2220,176 @@ export default function App() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Relational ER Diagram — 6 PostgreSQL Tables */}
+          <div className="mt-20">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Relational Schema Blueprint</span>
+              <h3 className="font-serif text-3xl md:text-4xl font-bold text-white mt-2">
+                PostgreSQL <span className="text-emerald-400 italic font-normal">Database ER Diagram</span>
+              </h3>
+              <p className="text-white/50 text-xs font-light mt-3">
+                Interactive relational schema of the exactly 6 required database tables. Hover over any table card below to automatically highlight its foreign-key relationships and data constraints.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[
+                {
+                  id: "users",
+                  name: "1. Users Table",
+                  desc: "Stores student accounts, credential bcrypt hashes, and authorization roles.",
+                  columns: [
+                    { name: "id", type: "SERIAL", key: "PK" },
+                    { name: "name", type: "VARCHAR(100)", key: "" },
+                    { name: "email", type: "VARCHAR(255) UNIQUE", key: "" },
+                    { name: "password_hash", type: "VARCHAR(255)", key: "" },
+                    { name: "role", type: "VARCHAR(20) [student/admin/faculty]", key: "" },
+                    { name: "created_at", type: "TIMESTAMP WITH TIME ZONE", key: "" }
+                  ],
+                  relations: ["exam_sessions", "results"]
+                },
+                {
+                  id: "exams",
+                  name: "3. Exams Table",
+                  desc: "Represents the 5 subjects assessed on the platform, storing timing constraints.",
+                  columns: [
+                    { name: "id", type: "SERIAL", key: "PK" },
+                    { name: "subject_name", type: "VARCHAR(100)", key: "" },
+                    { name: "description", type: "TEXT", key: "" },
+                    { name: "duration_minutes", type: "INTEGER", key: "" },
+                    { name: "total_questions_per_attempt", type: "INTEGER", key: "" }
+                  ],
+                  relations: ["question_bank", "exam_sessions", "results"]
+                },
+                {
+                  id: "question_bank",
+                  name: "2. Question Bank Table",
+                  desc: "Contains the 200 pooled exam questions (40 questions seeded per subject).",
+                  columns: [
+                    { name: "id", type: "SERIAL", key: "PK" },
+                    { name: "exam_id", type: "INTEGER", key: "FK -> Exams" },
+                    { name: "question_text", type: "TEXT", key: "" },
+                    { name: "option_a", type: "TEXT", key: "" },
+                    { name: "option_b", type: "TEXT", key: "" },
+                    { name: "option_c", type: "TEXT", key: "" },
+                    { name: "option_d", type: "TEXT", key: "" },
+                    { name: "correct_option", type: "INTEGER", key: "" },
+                    { name: "difficulty", type: "VARCHAR(10) [easy/medium/hard]", key: "" },
+                    { name: "topic_tag", type: "VARCHAR(50)", key: "" }
+                  ],
+                  relations: ["exams", "answers"]
+                },
+                {
+                  id: "exam_sessions",
+                  name: "4. Exam Sessions Table",
+                  desc: "Tracks students' active exam sessions, started/submitted times, and status.",
+                  columns: [
+                    { name: "id", type: "SERIAL", key: "PK" },
+                    { name: "user_id", type: "INTEGER", key: "FK -> Users" },
+                    { name: "exam_id", type: "INTEGER", key: "FK -> Exams" },
+                    { name: "question_order", type: "JSONB [Seeded Shuffle]", key: "" },
+                    { name: "started_at", type: "TIMESTAMP", key: "" },
+                    { name: "submitted_at", type: "TIMESTAMP", key: "" },
+                    { name: "status", type: "VARCHAR(20) [in_progress/submitted/auto_submitted]", key: "" }
+                  ],
+                  relations: ["users", "exams", "answers", "results"]
+                },
+                {
+                  id: "answers",
+                  name: "5. Answers Table",
+                  desc: "Records student option selections and time spent per individual question.",
+                  columns: [
+                    { name: "id", type: "SERIAL", key: "PK" },
+                    { name: "session_id", type: "INTEGER", key: "FK -> Exam_Sessions" },
+                    { name: "question_id", type: "INTEGER", key: "FK -> Question_Bank" },
+                    { name: "selected_option", type: "INTEGER", key: "" },
+                    { name: "is_correct", type: "BOOLEAN", key: "" },
+                    { name: "time_spent_seconds", type: "INTEGER", key: "" }
+                  ],
+                  relations: ["exam_sessions", "question_bank"]
+                },
+                {
+                  id: "results",
+                  name: "6. Results Table",
+                  desc: "Stores final graded marks, accuracy metrics, integrity scores, and AI feedback.",
+                  columns: [
+                    { name: "id", type: "SERIAL", key: "PK" },
+                    { name: "session_id", type: "INTEGER", key: "FK -> Exam_Sessions" },
+                    { name: "user_id", type: "INTEGER", key: "FK -> Users" },
+                    { name: "exam_id", type: "INTEGER", key: "FK -> Exams" },
+                    { name: "score", type: "INTEGER", key: "" },
+                    { name: "total_questions", type: "INTEGER", key: "" },
+                    { name: "accuracy_pct", type: "NUMERIC(5,2)", key: "" },
+                    { name: "cheating_probability", type: "NUMERIC(5,2)", key: "" },
+                    { name: "ai_feedback", type: "JSONB [GPT evaluation]", key: "" },
+                    { name: "created_at", type: "TIMESTAMP WITH TIME ZONE", key: "" }
+                  ],
+                  relations: ["exam_sessions", "users", "exams"]
+                }
+              ].map((table) => {
+                const isHovered = hoveredTable === table.id;
+                const isRelated = hoveredTable && table.relations.includes(hoveredTable);
+                const isInactive = hoveredTable && hoveredTable !== table.id && !table.relations.includes(hoveredTable);
+
+                return (
+                  <div
+                    key={table.id}
+                    onMouseEnter={() => setHoveredTable(table.id)}
+                    onMouseLeave={() => setHoveredTable(null)}
+                    className={`bg-[#080808] border rounded-2xl p-5 transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
+                      isHovered
+                        ? "border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.15)] scale-[1.02] z-20"
+                        : isRelated
+                          ? "border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.05)] scale-[1.01]"
+                          : isInactive
+                            ? "border-white/5 opacity-40 filter blur-[0.5px]"
+                            : "border-white/10"
+                    }`}
+                  >
+                    <div>
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-space text-xs font-bold text-white tracking-wide">{table.name}</span>
+                        <span className="text-[8px] font-mono px-1.5 py-0.5 bg-neutral-900 border border-white/5 text-emerald-400 rounded uppercase">PostgreSQL</span>
+                      </div>
+                      <p className="text-[10.5px] text-[#EBEBEB]/60 font-light mb-4.5 leading-normal">{table.desc}</p>
+
+                      {/* Columns List */}
+                      <div className="space-y-2 border-t border-white/5 pt-3 font-mono text-[10px]">
+                        {table.columns.map((col, idx) => (
+                          <div key={idx} className="flex justify-between items-center group/col py-0.5">
+                            <span className="text-white/80 group-hover/col:text-emerald-400 transition-colors">
+                              {col.name}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-white/40 text-[9px]">{col.type}</span>
+                              {col.key && (
+                                <span className={`px-1 py-0.1 text-[7.5px] font-space font-semibold rounded uppercase tracking-wider ${
+                                  col.key === "PK"
+                                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                    : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                }`}>
+                                  {col.key}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Footer connections helper */}
+                    {isHovered && (
+                      <div className="mt-4 pt-3 border-t border-white/5 text-[9px] font-space uppercase tracking-widest text-emerald-400/80 animate-pulse text-center">
+                        ↔ Relationship link active: {table.relations.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
         </div>
@@ -2823,7 +2994,7 @@ export default function App() {
                   <div className="border border-white/5 rounded-2xl bg-[#090909] p-5 mb-6">
                     <div className="flex justify-between items-center mb-4">
                       <h4 className="text-xs font-semibold text-white">Database Synchronization Ledger (Drizzle ORM)</h4>
-                      <span className="text-[8px] font-mono text-white/30">MYSQL RELATIONAL DB LINK</span>
+                      <span className="text-[8px] font-mono text-white/30">POSTGRESQL RELATIONAL DB LINK</span>
                     </div>
                     <div className="overflow-x-auto text-xs font-mono">
                       <table className="w-full text-left">
@@ -3057,7 +3228,7 @@ export default function App() {
             </span>
             <p className="text-white/30 text-xs font-light max-w-2xl mx-auto leading-relaxed">
               Individual Project · Sri Sai Ram Institute of Technology · 2025<br />
-              Built with React · FastAPI · MySQL · OpenCV · YOLOv8 · MediaPipe · Scikit-Learn
+              Built with React · FastAPI · PostgreSQL · MediaPipe · TensorFlow.js · Scikit-Learn
             </p>
           </div>
         </div>
