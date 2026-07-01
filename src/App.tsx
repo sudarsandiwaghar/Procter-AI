@@ -29,10 +29,12 @@ import {
   AlertCircle,
   TrendingDown,
   BookOpen,
-  UserCheck
+  UserCheck,
+  Download
 } from "lucide-react";
 import { LightRays } from "./Component";
 import { jsPDF } from "jspdf";
+import { questionsData, Question as DataQuestion, SUBJECTS } from "./questionsData";
 
 // Interfaces
 interface Log {
@@ -57,13 +59,33 @@ export default function App() {
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState("hero");
   const [hoveredTable, setHoveredTable] = useState<string | null>(null);
+  
+  // Custom View Mode (landing page vs dedicated secure exam portal)
+  const [viewMode, setViewMode] = useState<"landing" | "portal">("portal");
+  const [activeSubject, setActiveSubject] = useState<string>("");
+  const [activeQuestions, setActiveQuestions] = useState<Question[]>([]);
 
-  // Authentication & Login States
+  // Authentication, Registration & Login States
   const [userRole, setUserRole] = useState<"guest" | "student" | "admin">("guest");
+  const [activeAuthMode, setActiveAuthMode] = useState<"signin" | "signup">("signin");
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [activeLoginTab, setActiveLoginTab] = useState<"student" | "admin">("student");
+
+  // Sign Up states
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
+  const [signupError, setSignupError] = useState("");
+
+  // Seeded/registered users table simulator
+  const [registeredUsers, setRegisteredUsers] = useState<Array<{ name: string; email: string; password: string; role: "student" | "admin" }>>([
+    { name: "Sudar", email: "sudar@ssit.edu", password: "Root", role: "student" },
+    { name: "Sudarsan", email: "sudarsan@ssit.edu", password: "Root", role: "admin" }
+  ]);
+  const [loggedInStudentName, setLoggedInStudentName] = useState("Sudar");
 
   // Camera & Video Streaming States
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
@@ -498,7 +520,7 @@ export default function App() {
   };
 
   // Mock Question Bank
-  const questions: Question[] = [
+  const defaultQuestions: Question[] = [
     {
       id: 1,
       question: "Which computer vision tool or model is best suited for real-time, low-latency face mesh and head pose yaw tracking directly in the browser?",
@@ -555,6 +577,8 @@ export default function App() {
       correctAnswer: 1
     }
   ];
+
+  const questions: Question[] = activeQuestions.length > 0 ? activeQuestions : defaultQuestions;
 
   // AI Proctoring Engine 2x2 Grid Data
   const proctoringChecks = [
@@ -964,43 +988,267 @@ export default function App() {
     triggerViolation("Local webcam capture suspended", "INFO", "Webcam Driver API", "SYS_DEV_OFFLINE");
   };
 
-  // Authentication & Login handlers
+  // Authentication, Registration & Login handlers
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
 
-    const u = loginUsername.trim();
+    const u = loginUsername.trim().toLowerCase();
     const p = loginPassword.trim();
 
-    if (activeLoginTab === "student") {
-      if (u === "Sudar" && p === "Root") {
+    // Match credentials from simulated registeredUsers database
+    const matchedUser = registeredUsers.find(
+      (user) => 
+        (user.name.toLowerCase() === u || user.email.toLowerCase() === u) && 
+        user.password === p
+    );
+
+    if (matchedUser) {
+      if (activeLoginTab === "student" && matchedUser.role === "student") {
         setUserRole("student");
+        setLoggedInStudentName(matchedUser.name);
         setLoginUsername("");
         setLoginPassword("");
-        triggerViolation("Student security clearance verified (User: Sudar)", "INFO", "Active Directory", "AUTH_STU_MATCH");
+        triggerViolation(`Student security clearance verified (User: ${matchedUser.name})`, "INFO", "Active Directory", "AUTH_STU_MATCH");
+      } else if (activeLoginTab === "admin" && matchedUser.role === "admin") {
+        setUserRole("admin");
+        setLoggedInStudentName(matchedUser.name);
+        setLoginUsername("");
+        setLoginPassword("");
+        triggerViolation(`Administrator security clearance verified (User: ${matchedUser.name})`, "INFO", "Active Directory", "AUTH_ADM_MATCH");
       } else {
-        setLoginError("Invalid Student credentials. (Hint: Sudar / Root)");
+        setLoginError(`Role mismatch. This credential belongs to a ${matchedUser.role} portal.`);
       }
     } else {
-      if (u === "Sudarsan" && p === "Root") {
-        setUserRole("admin");
-        setLoginUsername("");
-        setLoginPassword("");
-        triggerViolation("Administrator security clearance verified (User: Sudarsan)", "INFO", "Active Directory", "AUTH_ADM_MATCH");
-      } else {
-        setLoginError("Invalid Faculty Admin credentials. (Hint: Sudarsan / Root)");
-      }
+      setLoginError(
+        activeLoginTab === "student"
+          ? "Invalid Student credentials. (Hint: Sudar / Root, or sign up for a new account)"
+          : "Invalid Faculty Admin credentials. (Hint: Sudarsan / Root)"
+      );
     }
+  };
+
+  const handleSignup = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSignupError("");
+
+    const name = signupName.trim();
+    const email = signupEmail.trim();
+    const pwd = signupPassword.trim();
+    const confPwd = signupConfirmPassword.trim();
+
+    // Verification and inline validations
+    if (!name || !email || !pwd || !confPwd) {
+      setSignupError("All fields are strictly required.");
+      return;
+    }
+    if (!email.includes("@")) {
+      setSignupError("Please specify a valid academic email address.");
+      return;
+    }
+    if (pwd !== confPwd) {
+      setSignupError("Passwords do not match. Please verify secret fields.");
+      return;
+    }
+    if (registeredUsers.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+      setSignupError("This email address is already registered in our active directory.");
+      return;
+    }
+
+    // Insert new student into simulated database table
+    const newUser = { name, email, password: pwd, role: "student" as const };
+    setRegisteredUsers(prev => [...prev, newUser]);
+
+    // Automatically authenticate the newly registered student
+    setUserRole("student");
+    setLoggedInStudentName(name);
+    
+    // Clear forms
+    setSignupName("");
+    setSignupEmail("");
+    setSignupPassword("");
+    setSignupConfirmPassword("");
+    setActiveAuthMode("signin");
+
+    triggerViolation(`Student account registered & auto-authenticated (User: ${name})`, "INFO", "Active Directory", "AUTH_STU_REG");
   };
 
   const handleLogout = () => {
     stopCamera();
     setSandboxActive(false);
     setUserRole("guest");
+    setActiveSubject("");
+    setActiveQuestions([]);
     setLoginUsername("");
     setLoginPassword("");
     setLoginError("");
+    setSignupError("");
     triggerViolation("User terminated session / logged out", "INFO", "Active Directory", "AUTH_DEAUTH_SUCCESS");
+  };
+
+  // Standalone Downloadable Question Bank Compiler (exactly 200 questions list grouped by subject)
+  const handleDownloadQuestionBank = () => {
+    const doc = new jsPDF();
+    
+    // Page 1: Beautiful Cover Page
+    doc.setFillColor(15, 23, 42); // slate-900 bg
+    doc.rect(0, 0, 210, 297, "F");
+    
+    // Abstract geometric accent borders
+    doc.setDrawColor(16, 185, 129); // emerald-500 line
+    doc.setLineWidth(1);
+    doc.line(20, 40, 190, 40);
+    doc.line(20, 260, 190, 260);
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    doc.setTextColor(255, 255, 255);
+    doc.text("ProctorAI", 30, 80);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(16, 185, 129);
+    doc.text("Unified Academic Question Bank", 30, 95);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(200, 200, 200);
+    doc.text("SRI SAI RAM INSTITUTE OF TECHNOLOGY (SSIT)", 30, 130);
+    doc.text("Department of Computer Science & Engineering", 30, 137);
+    
+    doc.setFillColor(16, 185, 129, 0.1);
+    doc.rect(30, 150, 150, 45, "F");
+    doc.setDrawColor(16, 185, 129);
+    doc.rect(30, 150, 150, 45);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("SPECIFICATIONS:", 35, 158);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(200, 200, 200);
+    doc.text("• Total Selections: 200 Comprehensive Questions", 35, 166);
+    doc.text("• Subjects Evaluated: 5 Core Academic Branches", 35, 172);
+    doc.text("• Question Format: Multiple Choice (MCQ) with Answer Key", 35, 178);
+    doc.text("• Integrity Compliance: Seeded via ProctorAI Database v3.2", 35, 184);
+    
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text("Generated securely via ProctorAI Engine on: " + new Date().toLocaleString(), 30, 230);
+    doc.text("Sri Sai Ram Institute of Technology · Final Year Project Portfolio", 30, 236);
+    
+    // Group questions by subject
+    const grouped: Record<string, typeof questionsData> = {};
+    SUBJECTS.forEach(sub => {
+      grouped[sub] = questionsData.filter(q => q.subject === sub);
+    });
+    
+    let y = 30;
+    
+    SUBJECTS.forEach((subject, sIdx) => {
+      doc.addPage();
+      y = 25;
+      
+      // Page background style
+      doc.setFillColor(248, 250, 252); // slate-50 background
+      doc.rect(0, 0, 210, 297, "F");
+      
+      // Header Banner
+      doc.setFillColor(15, 23, 42); // slate-900 banner
+      doc.rect(15, y, 180, 16, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`SUBJECT ${sIdx + 1}: ${subject.toUpperCase()}`, 20, y + 10);
+      
+      y += 28;
+      
+      const subQuestions = grouped[subject];
+      subQuestions.forEach((q, qIdx) => {
+        // Estimate height required for this question + options.
+        // If it crosses threshold, add a page to prevent clipping.
+        if (y + 40 > 275) {
+          doc.addPage();
+          doc.setFillColor(248, 250, 252);
+          doc.rect(0, 0, 210, 297, "F");
+          y = 25;
+          
+          // Running header
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(140, 140, 140);
+          doc.text(`Subject: ${subject} (Continued)`, 15, 15);
+          doc.line(15, 18, 195, 18);
+          y += 5;
+        }
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.5);
+        doc.setTextColor(15, 23, 42);
+        
+        // Wrap question text
+        const qText = `Q${qIdx + 1}. ${q.question}`;
+        const splitQuestion = doc.splitTextToSize(qText, 175);
+        doc.text(splitQuestion, 15, y);
+        
+        y += splitQuestion.length * 5;
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(70, 80, 95);
+        
+        q.options.forEach((opt, oIdx) => {
+          const letter = String.fromCharCode(65 + oIdx);
+          const optText = `   [${letter}]  ${opt}`;
+          const splitOpt = doc.splitTextToSize(optText, 170);
+          doc.text(splitOpt, 15, y);
+          y += splitOpt.length * 4.5;
+        });
+        
+        y += 4; // spacing between questions
+      });
+    });
+    
+    // Final Page: Unified Answer Key Index
+    doc.addPage();
+    doc.setFillColor(15, 23, 42); // slate-900 bg
+    doc.rect(0, 0, 210, 297, "F");
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text("UNIFIED ANSWER KEY INDEX", 15, 30);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(16, 185, 129);
+    doc.text("Verify correct responses for all 200 questions across 5 branches below.", 15, 37);
+    doc.line(15, 42, 195, 42);
+    
+    // Draw columns of answer keys (4 columns of 50 questions each)
+    let colX = 20;
+    let rowY = 55;
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    
+    questionsData.forEach((q, idx) => {
+      const qNum = idx + 1;
+      const letter = String.fromCharCode(65 + q.correctAnswer);
+      const subjectAbbrev = q.subject.includes("Data") ? "DSA" : q.subject.includes("Database") ? "DBMS" : q.subject.includes("Operating") ? "OS" : q.subject.includes("Networks") ? "CN" : "APT";
+      const keyStr = `Q${qNum} (${subjectAbbrev}): [ ${letter} ]`;
+      
+      doc.text(keyStr, colX, rowY);
+      rowY += 4.5;
+      
+      if (qNum % 40 === 0) {
+        colX += 37;
+        rowY = 55;
+      }
+    });
+    
+    // Save PDF
+    doc.save("proctorai_question_bank_200.pdf");
   };
 
   // Inject user custom violation or trigger automated one
@@ -1063,6 +1311,35 @@ export default function App() {
     setFlagPhone(false);
     setFlagTabSwitch(false);
     triggerViolation("Proctoring Session Started", "INFO", "Webcam Engine", "SESSION_INIT");
+    // Auto initiate hardware camera request on exam start
+    startCamera();
+  };
+
+  const startExamForSubject = (subjectName: string) => {
+    setActiveSubject(subjectName);
+    
+    // Filter the 200 questions to just this subject (40 questions)
+    const filtered = questionsData.filter(q => q.subject === subjectName);
+    
+    // Randomize and select 10 questions for a high-fidelity unique paper simulation
+    const shuffled = [...filtered].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 10);
+    
+    // Map properties: questionsData has `question` while `Question` in App.tsx expects `question` as well, they align perfectly.
+    setActiveQuestions(selected);
+    setSandboxActive(true);
+    setExamSubmitted(false);
+    setCurrentQuestionIdx(0);
+    setSelectedAnswers({});
+    setExamTimer(300); // 5 minutes (300 seconds) for the exam
+    setIntegrityScore(100);
+    setActiveViolationsCount(0);
+    setFlagLookAway(false);
+    setFlagMultiFace(false);
+    setFlagPhone(false);
+    setFlagTabSwitch(false);
+    
+    triggerViolation(`Proctoring Session Started - Subject: ${subjectName}`, "INFO", "Webcam Engine", "SESSION_INIT");
     // Auto initiate hardware camera request on exam start
     startCamera();
   };
@@ -1146,12 +1423,12 @@ export default function App() {
       {/* FIXED NAVBAR */}
       <nav 
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 px-6 md:px-12 py-5 flex items-center justify-between ${
-          scrolled 
+          scrolled || viewMode === "portal"
             ? "bg-[#050505]/85 backdrop-blur-md border-b border-white/5 py-3.5 shadow-lg shadow-black/50" 
             : "bg-transparent"
         }`}
       >
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setViewMode("portal"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
           <div className="w-9 h-9 border border-white/15 group-hover:border-emerald-500/80 rounded-lg flex items-center justify-center transition-all duration-700 group-hover:rotate-180 bg-white/5">
             <Shield className="w-4.5 h-4.5 text-emerald-400 group-hover:text-emerald-300" />
           </div>
@@ -1162,50 +1439,73 @@ export default function App() {
         </div>
 
         {/* Navigation Links */}
-        <div className="hidden lg:flex items-center gap-8">
-          {[
-            { id: "hero", label: "Features" },
-            { id: "how-it-works", label: "How It Works" },
-            { id: "tech-stack", label: "Tech Stack" },
-            { id: "ai-proctoring", label: "Proctoring" },
-            { id: "performance", label: "Grading" },
-            { id: "system-architecture", label: "Architecture" }
-          ].map(tab => (
-            <a 
-              key={tab.id}
-              href={`#${tab.id}`}
-              onClick={(e) => {
-                e.preventDefault();
-                const el = document.getElementById(tab.id);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              className={`relative text-[14px] tracking-wider transition-colors hover:text-emerald-400 py-1 font-sans ${
-                activeSection === tab.id ? "text-emerald-400 font-semibold" : "text-[#EBEBEB]/60"
-              }`}
-            >
-              {tab.label}
-              {activeSection === tab.id && (
-                <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-[#10B981] rounded-full" />
-              )}
-            </a>
-          ))}
-        </div>
+        {viewMode === "landing" ? (
+          <div className="hidden lg:flex items-center gap-8">
+            {[
+              { id: "hero", label: "Features" },
+              { id: "how-it-works", label: "How It Works" },
+              { id: "tech-stack", label: "Tech Stack" },
+              { id: "ai-proctoring", label: "Proctoring" },
+              { id: "performance", label: "Grading" },
+              { id: "system-architecture", label: "Architecture" }
+            ].map(tab => (
+              <a 
+                key={tab.id}
+                href={`#${tab.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  const el = document.getElementById(tab.id);
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className={`relative text-[14px] tracking-wider transition-colors hover:text-emerald-400 py-1 font-sans ${
+                  activeSection === tab.id ? "text-emerald-400 font-semibold" : "text-[#EBEBEB]/60"
+                }`}
+              >
+                {tab.label}
+                {activeSection === tab.id && (
+                  <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-[#10B981] rounded-full" />
+                )}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="hidden lg:flex items-center gap-6">
+            <span className="text-xs font-mono uppercase tracking-widest text-[#EBEBEB]/30 font-semibold">
+              ⚡ SECURED EXAM NETWORK PORTAL ACTIVE
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => {
-              const el = document.getElementById("dashboard");
-              if (el) el.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="text-xs font-semibold px-4.5 py-2 bg-transparent hover:bg-emerald-500/10 border border-[#10B981] text-[#10B981] rounded-full transition-all duration-300 font-space tracking-wide shadow-md hover:shadow-[#10B981]/20 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+          <button
+            onClick={handleDownloadQuestionBank}
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-[#10B981]/30 text-emerald-400 rounded-full transition-all duration-300 font-space tracking-wide active:scale-95 cursor-pointer"
           >
-            Explore Platform
+            <Download className="w-3.5 h-3.5" /> Q-Bank PDF
           </button>
+          
+          {viewMode === "landing" ? (
+            <button 
+              onClick={() => setViewMode("portal")}
+              className="text-xs font-semibold px-4.5 py-2 bg-[#10B981] hover:bg-emerald-400 text-black rounded-full transition-all duration-300 font-space tracking-wide shadow-md hover:shadow-[#10B981]/20 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+            >
+              Enter Portal Gateway
+            </button>
+          ) : (
+            <button 
+              onClick={() => { setViewMode("landing"); stopCamera(); }}
+              className="text-xs font-semibold px-4.5 py-2 bg-transparent hover:bg-white/5 border border-white/25 text-[#EBEBEB] rounded-full transition-all duration-300 font-space tracking-wide active:scale-95 cursor-pointer"
+            >
+              ← Back to Landing Page
+            </button>
+          )}
         </div>
       </nav>
 
-      {/* SECTION 2 — HERO (with WebGL LightRays in background) */}
-      <section id="hero" className="relative min-h-screen flex items-center justify-center pt-28 pb-16 overflow-hidden z-10 px-6 md:px-12">
+      {viewMode === "landing" && (
+        <>
+          {/* SECTION 2 — HERO (with WebGL LightRays in background) */}
+          <section id="hero" className="relative min-h-screen flex items-center justify-center pt-28 pb-16 overflow-hidden z-10 px-6 md:px-12">
         {/* Background LightRays Effect */}
         <LightRays
           raysOrigin="top-center"
@@ -2394,9 +2694,11 @@ export default function App() {
 
         </div>
       </section>
+        </>
+      )}
 
       {/* SECTION 10 — PROCTORING LOG PREVIEW & INTERACTIVE SANDBOX */}
-      <section id="dashboard" className="py-24 px-6 md:px-12 max-w-7xl mx-auto z-10 relative">
+      <section id="dashboard" className={`py-24 px-6 md:px-12 max-w-7xl mx-auto z-10 relative ${viewMode === "portal" ? "pt-32" : ""}`}>
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Interactive Sandbox Laboratory</span>
           <h2 className="font-serif text-4xl md:text-5xl font-bold text-white mt-2">
@@ -2437,61 +2739,163 @@ export default function App() {
               </button>
             </div>
 
+            {/* Student Auth Options Switch */}
+            {activeLoginTab === "student" && (
+              <div className="flex justify-center gap-3 mb-6 bg-white/5 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => { setActiveAuthMode("signin"); setLoginError(""); }}
+                  className={`flex-1 py-1.5 text-[10px] font-space uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                    activeAuthMode === "signin" ? "bg-emerald-500 text-black font-bold animate-fadeIn" : "text-white/60"
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveAuthMode("signup"); setLoginError(""); }}
+                  className={`flex-1 py-1.5 text-[10px] font-space uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                    activeAuthMode === "signup" ? "bg-emerald-500 text-black font-bold animate-fadeIn" : "text-white/60"
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
+
             <div className="text-center mb-6">
               <Lock className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
               <h3 className="text-lg font-bold text-white font-space">
-                {activeLoginTab === "student" ? "Candidate Exam Portal" : "Faculty Audit Portal"}
+                {activeLoginTab === "student" 
+                  ? (activeAuthMode === "signup" ? "Create Candidate Account" : "Candidate Exam Portal") 
+                  : "Faculty Audit Portal"}
               </h3>
               <p className="text-white/40 text-[11px] font-light mt-1">
                 {activeLoginTab === "student" 
-                  ? "Enter Student credentials to launch the proctored assessment." 
+                  ? (activeAuthMode === "signup" 
+                      ? "Register your credentials with the institutional DB node." 
+                      : "Enter Student credentials to launch the proctored assessment.") 
                   : "Enter Admin credentials to audit system violations and cohort telemetry."}
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-4 text-left">
-              <div>
-                <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
-                  Clearance Identity (Username)
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={activeLoginTab === "student" ? "Sudar" : "Sudarsan"}
-                  value={loginUsername}
-                  onChange={(e) => setLoginUsername(e.target.value)}
-                  className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
-                  Identity Secret (Password)
-                </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Root"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
-                />
-              </div>
-
-              {loginError && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] p-3 rounded-xl flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{loginError}</span>
+            {activeLoginTab === "student" && activeAuthMode === "signup" ? (
+              <form onSubmit={handleSignup} className="space-y-4 text-left animate-fadeIn">
+                <div>
+                  <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
+                    Full Candidate Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Sudar"
+                    value={signupName}
+                    onChange={(e) => setSignupName(e.target.value)}
+                    className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
                 </div>
-              )}
 
-              <button
-                type="submit"
-                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg active:scale-95"
-              >
-                Authenticate Clearance
-              </button>
-            </form>
+                <div>
+                  <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
+                    Institutional Email (or Username)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="sudar@ssit.edu.in"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
+                    Create Secret Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
+                    Confirm Secret Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={signupConfirmPassword}
+                    onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                    className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                {signupError && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] p-3 rounded-xl flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{signupError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg active:scale-95"
+                >
+                  Register & Auto-Login
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4 text-left animate-fadeIn">
+                <div>
+                  <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
+                    Clearance Identity (Username / Email)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={activeLoginTab === "student" ? "Sudar" : "Sudarsan"}
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
+                    className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
+                    Identity Secret (Password)
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Root"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                {loginError && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] p-3 rounded-xl flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg active:scale-95"
+                >
+                  Authenticate Clearance
+                </button>
+              </form>
+            )}
 
             <div className="mt-4 pt-4 border-t border-white/5 text-center">
               <span className="text-[9px] font-mono text-white/30 tracking-widest uppercase block">
@@ -2525,438 +2929,555 @@ export default function App() {
 
             {/* ROLE 1: Student Sandbox View */}
             {userRole === "student" && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-16 animate-fadeIn">
-                {/* Active Candidate Exam Interface Panel */}
-                <div className="lg:col-span-7 bg-[#0B0B0B] border border-white/5 rounded-3xl p-6 md:p-8 relative min-h-[500px] shadow-2xl">
-                  
-                  {!sandboxActive ? (
-                    <div className="flex flex-col items-center justify-center text-center py-20">
-                      <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6 border border-emerald-500/25">
-                        <Video className="w-8 h-8 text-emerald-400" />
+              <div className="animate-fadeIn">
+                {!sandboxActive ? (
+                  /* EXAM SELECTION DASHBOARD */
+                  <div className="bg-[#0B0B0B] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl mb-16 text-left">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-white/5 pb-6 mb-8 gap-4">
+                      <div>
+                        <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Candidate Secure Workspace</span>
+                        <h3 className="font-serif text-3xl md:text-4xl font-bold text-white mt-1">
+                          Welcome back, <span className="text-emerald-400 italic font-normal">{loggedInStudentName || "Sudar"}</span>!
+                        </h3>
+                        <p className="text-white/50 text-xs font-light mt-1.5 max-w-xl leading-relaxed">
+                          Your active session is authorized. Select a core examination subject below to initialize the high-precision client-side computer vision proctor and begin your randomized paper.
+                        </p>
                       </div>
-                      <h3 className="font-serif text-2xl font-bold text-white mb-3">Launch Exam Proctoring Session</h3>
-                      <p className="text-white/50 font-light text-sm max-w-md leading-relaxed mb-8">
-                        Initiate a mock testing environment simulating the candidate-side webcam verification check. No actual streaming data is transmitted outside your local browser view.
-                      </p>
-
-                      <button 
-                        onClick={startSandboxExam}
-                        className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-full font-space text-xs uppercase tracking-wider transition-all duration-300 shadow-xl shadow-emerald-500/15 cursor-pointer active:scale-95"
+                      
+                      <button
+                        onClick={handleDownloadQuestionBank}
+                        className="px-5 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 rounded-2xl transition-all duration-300 font-space text-xs font-bold tracking-wide active:scale-95 shrink-0"
                       >
-                        Initialize Candidate Iframe
+                        📥 Download 200-Question PDF
                       </button>
                     </div>
-                  ) : examSubmitted ? (
-                    <div className="py-8 animate-fadeIn text-left">
-                      <div className="flex flex-col items-center justify-center text-center mb-8">
-                        <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-4 border border-emerald-500/20">
-                          <Award className="w-8 h-8 text-emerald-400" />
-                        </div>
-                        <h3 className="font-serif text-3xl font-bold text-white">Assessment Submitted Successfully</h3>
-                        <p className="text-white/50 text-sm font-light mt-1">The system has locked the answer sheet and calculated scores.</p>
-                      </div>
 
-                      {/* Score Summary Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4.5 mb-6">
-                        <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-                          <span className="font-serif text-5xl md:text-6xl font-light text-emerald-400">{getCorrectAnswersCount()} / {questions.length}</span>
-                          <span className="font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold mt-2">Answering Accuracy</span>
+                    {/* Previous Submitted Score Card */}
+                    {examSubmitted && (
+                      <div className="bg-emerald-500/[0.02] border border-emerald-500/15 rounded-2xl p-6 mb-8 animate-fadeIn">
+                        <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
+                          <Award className="text-emerald-400 w-5 h-5" />
+                          <span className="text-xs font-bold uppercase tracking-wider font-space text-emerald-400">Previous Exam Graded Result</span>
                         </div>
-
-                        <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-                          <span className={`font-serif text-5xl md:text-6xl font-light ${
-                            integrityScore >= 80 
-                              ? "text-emerald-400" 
-                              : integrityScore >= 50 
-                                ? "text-amber-400" 
-                                : "text-red-400"
-                          }`}>
-                            {integrityScore}%
-                          </span>
-                          <span className="font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold mt-2">Integrity Trust Rating</span>
-                        </div>
-                      </div>
-
-                      {/* PDF Auto Generation Status Banner */}
-                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-start gap-3.5">
-                          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                            <FileText className="w-5 h-5" />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                          <div className="bg-neutral-900/30 border border-white/5 rounded-xl p-4 text-center">
+                            <span className="block text-3xl font-serif text-emerald-400 font-light">{getCorrectAnswersCount()} / {questions.length}</span>
+                            <span className="block text-[9px] font-space uppercase tracking-widest text-[#EBEBEB]/45 font-bold mt-1">Accuracy Score</span>
                           </div>
-                          <div>
-                            <h4 className="text-xs font-semibold text-white">Official PDF Report Downloaded Automatically!</h4>
-                            <p className="text-[11px] text-white/50 mt-0.5">Includes student profile, exam marks, performance metrics, cheat index, and faculty verification QR.</p>
+                          <div className="bg-neutral-900/30 border border-white/5 rounded-xl p-4 text-center">
+                            <span className={`block text-3xl font-serif font-light ${integrityScore >= 80 ? "text-emerald-400" : "text-amber-400"}`}>{integrityScore}%</span>
+                            <span className="block text-[9px] font-space uppercase tracking-widest text-[#EBEBEB]/45 font-bold mt-1">Integrity Trust Rating</span>
                           </div>
-                        </div>
-                        <button
-                          onClick={handleDownloadPDF}
-                          className="px-4.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95 shrink-0 self-end sm:self-auto shadow-md"
-                        >
-                          Download/Regenerate PDF
-                        </button>
-                      </div>
-
-                      {/* Auditor Telemetry Summary */}
-                      <div className="bg-neutral-900/20 border border-white/5 rounded-2xl p-5 mb-6">
-                        <h4 className="text-xs font-semibold text-white mb-3 uppercase tracking-wider font-space text-[#EBEBEB]/60">Biometric Auditor Telemetry Summary</h4>
-                        <div className="space-y-3 text-xs font-light">
-                          <div className="flex justify-between border-b border-white/[0.03] pb-2">
-                            <span className="text-white/50">Total anomalies logged:</span>
-                            <span className={`font-semibold ${activeViolationsCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-                              {activeViolationsCount} violations recorded
-                            </span>
+                          <div className="bg-neutral-900/30 border border-white/5 rounded-xl p-4 text-center">
+                            <span className="block text-xs text-white/85 font-mono mt-2 uppercase tracking-wide">SECURE_VERIFIED</span>
+                            <span className="block text-[9px] font-space uppercase tracking-widest text-[#EBEBEB]/45 font-bold mt-1">Auditor Status</span>
                           </div>
-                          <div className="flex justify-between border-b border-white/[0.03] pb-2">
-                            <span className="text-white/50">Tab switch triggers:</span>
-                            <span className="font-semibold text-white">
-                              {flagTabSwitch ? "Yes (1 incident)" : "No switch registered"}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-white/50">Evaluation classification:</span>
-                            <span className={`font-semibold ${integrityScore >= 80 ? "text-emerald-400" : integrityScore >= 50 ? "text-amber-400" : "text-red-400"}`}>
-                              {integrityScore >= 80 ? "SECURE_INTEGRITY" : integrityScore >= 50 ? "FLAGGED_FOR_AUDIT" : "PROCTORING_COMPROMISED"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* AI Academic Review Chatbot Widget */}
-                      <div className="bg-[#080808] border border-white/10 rounded-2xl p-5 mb-8 text-left shadow-xl">
-                        <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4">
-                          <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping"></div>
-                          <span className="text-xs font-semibold uppercase tracking-wider font-space text-emerald-400">Post-Exam AI Academic Review Assistant</span>
-                        </div>
-
-                        <p className="text-[11px] text-white/50 font-light mb-4 leading-relaxed">
-                          Ask our server-side academic AI tutor anything about your specific score, questions you got wrong, recommended topics, or request practice questions to test your understanding!
-                        </p>
-
-                        {/* Suggestion Chips */}
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          <button
-                            onClick={() => handleReviewChatSubmit(undefined, "Why did I lose marks?")}
-                            disabled={isReviewChatThinking}
-                            className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl text-[10.5px] cursor-pointer transition-all active:scale-95 disabled:opacity-50"
-                          >
-                            Why did I lose marks? 📝
-                          </button>
-                          <button
-                            onClick={() => handleReviewChatSubmit(undefined, "What topics should I study?")}
-                            disabled={isReviewChatThinking}
-                            className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl text-[10.5px] cursor-pointer transition-all active:scale-95 disabled:opacity-50"
-                          >
-                            What topics should I study? 🎓
-                          </button>
-                          <button
-                            onClick={() => handleReviewChatSubmit(undefined, "Give me practice questions.")}
-                            disabled={isReviewChatThinking}
-                            className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl text-[10.5px] cursor-pointer transition-all active:scale-95 disabled:opacity-50"
-                          >
-                            Give me practice questions ✍️
-                          </button>
-                          <button
-                            onClick={() => handleReviewChatSubmit(undefined, "Explain Question 1.")}
-                            disabled={isReviewChatThinking}
-                            className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl text-[10.5px] cursor-pointer transition-all active:scale-95 disabled:opacity-50"
-                          >
-                            Explain Question 1 🔎
-                          </button>
-                        </div>
-
-                        {/* Chat History Area */}
-                        <div className="space-y-3.5 h-[280px] overflow-y-auto pr-2 text-xs mb-4 border border-white/5 bg-[#050505] p-4 rounded-xl">
-                          {reviewChatMessages.map((msg, idx) => (
-                            <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`p-3 rounded-2xl max-w-[85%] font-light leading-relaxed whitespace-pre-line ${
-                                msg.sender === 'user' 
-                                  ? 'bg-emerald-500/10 text-emerald-200 border border-emerald-500/25 rounded-tr-none' 
-                                  : 'bg-white/[0.03] text-white/90 border border-white/5 rounded-tl-none'
-                              }`}>
-                                {msg.text}
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {isReviewChatThinking && (
-                            <div className="flex justify-start">
-                              <div className="bg-white/[0.03] text-white/50 border border-white/5 p-3 rounded-2xl rounded-tl-none flex items-center gap-2">
-                                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-bounce"></span>
-                                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-bounce delay-100"></span>
-                                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-bounce delay-200"></span>
-                                <span className="text-[10px] ml-1 font-mono">Academic Coach is thinking...</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Input Box Form */}
-                        <form onSubmit={(e) => handleReviewChatSubmit(e)} className="flex gap-2.5">
-                          <input 
-                            type="text" 
-                            value={reviewChatInput}
-                            onChange={(e) => setReviewChatInput(e.target.value)}
-                            disabled={isReviewChatThinking}
-                            placeholder={reviewChatInputPlaceholder}
-                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors disabled:opacity-50"
-                          />
-                          <button 
-                            type="submit"
-                            disabled={isReviewChatThinking}
-                            className="px-5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center"
-                          >
-                            Send
-                          </button>
-                        </form>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center justify-center gap-4">
-                        <button 
-                          onClick={startSandboxExam}
-                          className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-xs uppercase tracking-wider rounded-full transition-all cursor-pointer shadow-lg active:scale-95"
-                        >
-                          Restart Session
-                        </button>
-                        <button 
-                          onClick={() => setSandboxActive(false)}
-                          className="px-6 py-3.5 bg-white/5 border border-white/10 text-white rounded-full transition-all cursor-pointer"
-                        >
-                          Close Session
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-left animate-fadeIn">
-                      
-                      {/* Active Exam Header */}
-                      <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
-                        <div>
-                          <span className="font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/40">Active Proctored Exam Manifest</span>
-                          <h3 className="text-lg font-bold text-white mt-0.5">SSIT Vision Platform Trial — Section A</h3>
-                        </div>
-                        <div className="flex items-center gap-4.5">
-                          <div className="text-right">
-                            <span className="font-space text-[8px] uppercase tracking-widest text-white/40 block">TIME REMAINING</span>
-                            <span className="font-mono text-emerald-400 font-semibold">{formatTime(examTimer)}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-space text-[8px] uppercase tracking-widest text-white/40 block">TRUST INDEX</span>
-                            <span className={`font-mono font-semibold ${
-                              integrityScore >= 80 
-                                ? "text-emerald-400" 
-                                : integrityScore >= 50 
-                                  ? "text-amber-400" 
-                                  : "text-red-400"
-                            }`}>
-                              {integrityScore}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Question Area */}
-                      <div className="mb-8">
-                        <div className="flex justify-between text-xs text-white/40 mb-3 font-mono">
-                          <span>QUESTION {currentQuestionIdx + 1} OF {questions.length}</span>
-                          <span className="text-emerald-400">Weight: 2.0 points</span>
-                        </div>
-
-                        <h4 className="text-sm font-medium text-white mb-6 leading-relaxed">
-                          {questions[currentQuestionIdx].question}
-                        </h4>
-
-                        <div className="space-y-3">
-                          {questions[currentQuestionIdx].options.map((opt, oIdx) => (
-                            <div 
-                              key={oIdx}
-                              onClick={() => handleSelectAnswer(questions[currentQuestionIdx].id, oIdx)}
-                              className={`border rounded-xl p-4 cursor-pointer text-xs transition-colors ${
-                                selectedAnswers[questions[currentQuestionIdx].id] === oIdx 
-                                  ? "border-emerald-500 bg-emerald-500/5 text-emerald-200" 
-                                  : "border-white/5 hover:border-white/10 hover:bg-white/[0.01] text-white/80"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className={`w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-mono shrink-0 ${
-                                  selectedAnswers[questions[currentQuestionIdx].id] === oIdx 
-                                    ? "border-emerald-500 text-emerald-400" 
-                                    : "border-white/20 text-white/40"
-                                }`}>
-                                  {String.fromCharCode(65 + oIdx)}
-                                </span>
-                                <span>{opt}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Navigation Buttons inside quiz */}
-                      <div className="flex justify-between items-center pt-6 border-t border-white/5">
-                        <div className="flex items-center gap-2">
-                          <button 
-                            disabled={currentQuestionIdx === 0}
-                            onClick={() => setCurrentQuestionIdx(prev => Math.max(0, prev - 1))}
-                            className="px-4 py-2 border border-white/10 rounded-xl text-xs hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                          >
-                            Previous
-                          </button>
-                          <button 
-                            disabled={currentQuestionIdx === questions.length - 1}
-                            onClick={() => setCurrentQuestionIdx(prev => Math.min(questions.length - 1, prev + 1))}
-                            className="px-4 py-2 border border-white/10 rounded-xl text-xs hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                          >
-                            Next
-                          </button>
-                        </div>
-
-                        {currentQuestionIdx === questions.length - 1 ? (
-                          <button 
-                            onClick={handleSandboxSubmit}
-                            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md shadow-emerald-500/10 active:scale-95"
-                          >
-                            Submit Exam
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-white/30 font-mono tracking-wider">SELECT OPTION TO LOG PROGRESS</span>
-                        )}
-                      </div>
-
-                    </div>
-                  )}
-
-                </div>
-
-                {/* Right Column: Live Webcam Stream with Overlay Canvas */}
-                <div className="lg:col-span-5 space-y-6 text-left">
-                  
-                  {/* Live Camera Feed Container */}
-                  <div className="bg-[#080808] border border-white/10 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
-                    <span className="font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 block mb-4 font-bold">Active Vision Tracking Canvas</span>
-                    
-                    <div className="relative aspect-video bg-neutral-950 border border-white/5 rounded-2xl overflow-hidden flex flex-col justify-between p-4">
-                      
-                      {/* Actual webcam stream element */}
-                      {webcamStream && cameraActive ? (
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-                        />
-                      ) : null}
-
-                      {/* Automated precise biometric landmark drawing canvas */}
-                      {sandboxActive && !examSubmitted && cameraActive && (
-                        <canvas
-                          ref={canvasRef}
-                          className="absolute inset-0 w-full h-full pointer-events-none z-20"
-                        />
-                      )}
-
-                      {/* Simulated offline webcam placeholder state */}
-                      {!cameraActive && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 text-center">
-                          <div className="text-center">
-                            <Video className="w-12 h-12 text-white/10 mx-auto mb-3" />
-                            <span className="text-xs text-white/45 font-light">Camera verification stream offline</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-start z-10 pointer-events-none">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-black/60 rounded border border-white/10 text-[9px] font-mono">
-                          <span className={`w-1.5 h-1.5 rounded-full ${sandboxActive && !examSubmitted && cameraActive ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`}></span>
-                          {sandboxActive && !examSubmitted && cameraActive ? "BIO_MESH_OVERLAY" : "BIO_OFFLINE"}
-                        </span>
-                        <span className="text-[9px] text-white/30 font-mono">DEV_PREVIEW</span>
-                      </div>
-
-                      <div className="flex justify-between items-end z-10 pointer-events-none">
-                        <span className="text-[9px] text-white/30 font-mono">UTC: {new Date().toISOString().substring(11, 19)}</span>
-                        <span className="text-[8px] text-emerald-400 font-mono tracking-wider">99.4% ACCURACY</span>
-                      </div>
-                    </div>
-
-                    {cameraPermission === "denied" && (
-                      <div className="mt-3 bg-red-500/10 border border-red-500/25 p-3.5 rounded-xl text-[11px] text-red-400 leading-relaxed font-light flex items-start gap-2.5">
-                        <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-red-400" />
-                        <div>
-                          <strong className="font-semibold text-red-200">Hardware Access Refused</strong>
-                          <p className="mt-0.5 text-red-400/80">Please adjust your browser site preferences to grant proctoring camera authorization checks.</p>
                         </div>
                       </div>
                     )}
-                  </div>
 
-                  {/* Manual Violation Event Injector */}
-                  <div className="bg-[#080808] border border-white/10 rounded-3xl p-5 shadow-2xl relative">
-                    <span className="font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 block mb-4 font-bold">Inject Simulated Vision Flags</span>
-                    
-                    <div className="space-y-3">
-                      <button 
-                        disabled={!sandboxActive || examSubmitted}
-                        onClick={() => toggleViolationFlag("lookaway")}
-                        className={`w-full text-left p-3.5 rounded-2xl border text-xs flex justify-between items-center transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer ${
-                          flagLookAway 
-                            ? "border-amber-500 bg-amber-500/5 text-amber-200" 
-                            : "border-white/5 hover:border-white/10 text-white/80"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Eye className="w-4.5 h-4.5 text-amber-400" />
+                    {/* 5 Core Seeded Subjects Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {[
+                        {
+                          name: "Data Structures & Algorithms",
+                          desc: "Examines linear and non-linear layouts, complexity runtimes, self-balancing search trees, sorting mechanics, and dynamic graph traversals.",
+                          topics: ["BST & AVL Trees", "Dynamic Programming", "Dijkstra Graph", "Big-O Analysis"],
+                          code: "DSA-301"
+                        },
+                        {
+                          name: "Database Management Systems",
+                          desc: "Covers standard Relational calculus, functional dependency normalizations, transactional ACID states, and B-Tree indexing parameters.",
+                          topics: ["3NF Normalization", "B-Tree Indexes", "ACID Transactions", "SQL Projections"],
+                          code: "DBMS-302"
+                        },
+                        {
+                          name: "Operating Systems",
+                          desc: "Includes thread concurrency, lock deadlocks, dynamic CPU schedulers, physical paging, and virtual TLB storage structures.",
+                          topics: ["Paging & TLB", "CPU Schedulers", "Semaphore Deadlock", "POSIX Threads"],
+                          code: "OS-303"
+                        },
+                        {
+                          name: "Computer Networks",
+                          desc: "Addresses TCP windowing protocols, CIDR routing architectures, domain routing DNS, TLS transport layers, and network topologies.",
+                          topics: ["TCP Windowing", "CIDR Subnetting", "DNS Cache Link", "TLS Handshake"],
+                          code: "CN-304"
+                        },
+                        {
+                          name: "Aptitude & Quantitative Reasoning",
+                          desc: "Tests advanced logic pathways, probability distributions, permutation calculations, dynamic speed, and ratio equations.",
+                          topics: ["Ratio Mechanics", "Probability Rules", "Logic Deduction", "Sequence Grids"],
+                          code: "APT-305"
+                        }
+                      ].map((subject, idx) => (
+                        <div 
+                          key={idx} 
+                          className="bg-neutral-900/20 border border-white/5 hover:border-emerald-500/35 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.01] flex flex-col justify-between group"
+                        >
                           <div>
-                            <div className="font-semibold">Simulate Look-Away Gaze</div>
-                            <p className="text-[10px] text-white/40 mt-0.5">Triggers head yaw rotation beyond bounds warning.</p>
+                            <div className="flex justify-between items-start mb-3">
+                              <span className="text-[8.5px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded uppercase">
+                                {subject.code}
+                              </span>
+                              <span className="text-[9px] font-mono text-white/30">40 Questions Pool</span>
+                            </div>
+                            <h4 className="text-base font-bold text-white font-space leading-tight group-hover:text-emerald-400 transition-colors">{subject.name}</h4>
+                            <p className="text-[11px] text-[#EBEBEB]/60 font-light mt-2 leading-relaxed">{subject.desc}</p>
+                            
+                            <div className="flex flex-wrap gap-1.5 mt-4 mb-6">
+                              {subject.topics.map((t, tIdx) => (
+                                <span key={tIdx} className="text-[8px] font-mono text-white/45 bg-white/5 px-2 py-0.5 rounded">
+                                  #{t}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                        <span className="text-[10px] font-mono uppercase font-bold text-amber-500">{flagLookAway ? "ACTIVE" : "INJECT"}</span>
-                      </button>
 
-                      <button 
-                        disabled={!sandboxActive || examSubmitted}
-                        onClick={() => toggleViolationFlag("multiface")}
-                        className={`w-full text-left p-3.5 rounded-2xl border text-xs flex justify-between items-center transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer ${
-                          flagMultiFace 
-                            ? "border-red-500 bg-red-500/5 text-red-200" 
-                            : "border-white/5 hover:border-white/10 text-white/80"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Users className="w-4.5 h-4.5 text-red-400" />
-                          <div>
-                            <div className="font-semibold">Simulate Multiple Faces</div>
-                            <p className="text-[10px] text-white/40 mt-0.5">Triggers secondary human contour warning.</p>
-                          </div>
+                          <button
+                            onClick={() => startExamForSubject(subject.name)}
+                            className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-[10.5px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95 text-center shadow-md hover:shadow-emerald-500/10"
+                          >
+                            Launch Secur-Exam (10 Qs)
+                          </button>
                         </div>
-                        <span className="text-[10px] font-mono uppercase font-bold text-red-500">{flagMultiFace ? "ACTIVE" : "INJECT"}</span>
-                      </button>
+                      ))}
 
-                      <button 
-                        disabled={!sandboxActive || examSubmitted}
-                        onClick={() => toggleViolationFlag("phone")}
-                        className={`w-full text-left p-3.5 rounded-2xl border text-xs flex justify-between items-center transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer ${
-                          flagPhone 
-                            ? "border-red-500 bg-red-500/5 text-red-200" 
-                            : "border-white/5 hover:border-white/10 text-white/80"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Smartphone className="w-4.5 h-4.5 text-red-400" />
-                          <div>
-                            <div className="font-semibold">Simulate Cellphone Presence</div>
-                            <p className="text-[10px] text-white/40 mt-0.5">Triggers YOLO electronic shape detector.</p>
+                      {/* Static Academic bank promo card */}
+                      <div className="bg-emerald-500/[0.01] border border-emerald-500/10 rounded-2xl p-6 flex flex-col justify-between items-start">
+                        <div>
+                          <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center mb-4">
+                            <BookOpen className="text-emerald-400 w-5 h-5" />
                           </div>
+                          <h4 className="text-base font-bold text-white font-space">200-Question Core Repository</h4>
+                          <p className="text-[11px] text-[#EBEBEB]/60 font-light mt-2 leading-relaxed">
+                            Every exam paper is dynamically built by randomizing 10 questions from our pool of 40 expert-approved questions per core subject.
+                          </p>
                         </div>
-                        <span className="text-[10px] font-mono uppercase font-bold text-red-500">{flagPhone ? "ACTIVE" : "INJECT"}</span>
-                      </button>
+
+                        <button
+                          onClick={handleDownloadQuestionBank}
+                          className="w-full mt-6 py-2.5 bg-transparent hover:bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold font-space text-[10.5px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95 text-center"
+                        >
+                          Download Complete Question Bank
+                        </button>
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  /* ACTIVE EXAM RUNTIME (2 COLUMNS: EXAM SHEET & WEBCAM OVERLAY) */
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-16">
+                    {/* Left Column: Active Candidate Exam Interface Panel */}
+                    <div className="lg:col-span-7 bg-[#0B0B0B] border border-white/5 rounded-3xl p-6 md:p-8 relative min-h-[500px] shadow-2xl">
+                      {examSubmitted ? (
+                        <div className="py-8 animate-fadeIn text-left">
+                          <div className="flex flex-col items-center justify-center text-center mb-8">
+                            <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-4 border border-emerald-500/20">
+                              <Award className="w-8 h-8 text-emerald-400" />
+                            </div>
+                            <h3 className="font-serif text-3xl font-bold text-white">Assessment Submitted Successfully</h3>
+                            <p className="text-white/50 text-sm font-light mt-1">The system has locked the answer sheet and calculated scores.</p>
+                          </div>
 
-                </div>
+                          {/* Score Summary Grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4.5 mb-6">
+                            <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+                              <span className="font-serif text-5xl md:text-6xl font-light text-emerald-400">{getCorrectAnswersCount()} / {questions.length}</span>
+                              <span className="font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold mt-2">Answering Accuracy</span>
+                            </div>
 
+                            <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+                              <span className={`font-serif text-5xl md:text-6xl font-light ${
+                                integrityScore >= 80 
+                                  ? "text-emerald-400" 
+                                  : integrityScore >= 50 
+                                    ? "text-amber-400" 
+                                    : "text-red-400"
+                              }`}>
+                                {integrityScore}%
+                              </span>
+                              <span className="font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold mt-2">Integrity Trust Rating</span>
+                            </div>
+                          </div>
+
+                          {/* PDF Auto Generation Status Banner */}
+                          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex items-start gap-3.5">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h4 className="text-xs font-semibold text-white">Official PDF Report Downloaded Automatically!</h4>
+                                <p className="text-[11px] text-white/50 mt-0.5">Includes student profile, exam marks, performance metrics, cheat index, and faculty verification QR.</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleDownloadPDF}
+                              className="px-4.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95 shrink-0 self-end sm:self-auto shadow-md"
+                            >
+                              Download/Regenerate PDF
+                            </button>
+                          </div>
+
+                          {/* Auditor Telemetry Summary */}
+                          <div className="bg-neutral-900/20 border border-white/5 rounded-2xl p-5 mb-6">
+                            <h4 className="text-xs font-semibold text-white mb-3 uppercase tracking-wider font-space text-[#EBEBEB]/60">Biometric Auditor Telemetry Summary</h4>
+                            <div className="space-y-3 text-xs font-light">
+                              <div className="flex justify-between border-b border-white/[0.03] pb-2">
+                                <span className="text-white/50">Total anomalies logged:</span>
+                                <span className={`font-semibold ${activeViolationsCount > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                                  {activeViolationsCount} violations recorded
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-b border-white/[0.03] pb-2">
+                                <span className="text-white/50">Tab switch triggers:</span>
+                                <span className="font-semibold text-white">
+                                  {flagTabSwitch ? "Yes (1 incident)" : "No switch registered"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/50">Evaluation classification:</span>
+                                <span className={`font-semibold ${integrityScore >= 80 ? "text-emerald-400" : integrityScore >= 50 ? "text-amber-400" : "text-red-400"}`}>
+                                  {integrityScore >= 80 ? "SECURE_INTEGRITY" : integrityScore >= 50 ? "FLAGGED_FOR_AUDIT" : "PROCTORING_COMPROMISED"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* AI Academic Review Chatbot Widget */}
+                          <div className="bg-[#080808] border border-white/10 rounded-2xl p-5 mb-8 text-left shadow-xl">
+                            <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4">
+                              <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping"></div>
+                              <span className="text-xs font-semibold uppercase tracking-wider font-space text-emerald-400">Post-Exam AI Academic Review Assistant</span>
+                            </div>
+
+                            <p className="text-[11px] text-white/50 font-light mb-4 leading-relaxed">
+                              Ask our server-side academic AI tutor anything about your specific score, questions you got wrong, recommended topics, or request practice questions to test your understanding!
+                            </p>
+
+                            {/* Suggestion Chips */}
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              <button
+                                onClick={() => handleReviewChatSubmit(undefined, "Why did I lose marks?")}
+                                disabled={isReviewChatThinking}
+                                className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl text-[10.5px] cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                              >
+                                Why did I lose marks? 📝
+                              </button>
+                              <button
+                                onClick={() => handleReviewChatSubmit(undefined, "What topics should I study?")}
+                                disabled={isReviewChatThinking}
+                                className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl text-[10.5px] cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                              >
+                                What topics should I study? 🎓
+                              </button>
+                              <button
+                                onClick={() => handleReviewChatSubmit(undefined, "Give me practice questions.")}
+                                disabled={isReviewChatThinking}
+                                className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl text-[10.5px] cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                              >
+                                Give me practice questions ✍️
+                              </button>
+                              <button
+                                onClick={() => handleReviewChatSubmit(undefined, "Explain Question 1.")}
+                                disabled={isReviewChatThinking}
+                                className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 rounded-xl text-[10.5px] cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                              >
+                                Explain Question 1 🔎
+                              </button>
+                            </div>
+
+                            {/* Chat History Area */}
+                            <div className="space-y-3.5 h-[280px] overflow-y-auto pr-2 text-xs mb-4 border border-white/5 bg-[#050505] p-4 rounded-xl">
+                              {reviewChatMessages.map((msg, idx) => (
+                                <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                  <div className={`p-3 rounded-2xl max-w-[85%] font-light leading-relaxed whitespace-pre-line ${
+                                    msg.sender === 'user' 
+                                      ? 'bg-emerald-500/10 text-emerald-200 border border-emerald-500/25 rounded-tr-none' 
+                                      : 'bg-white/[0.03] text-white/90 border border-white/5 rounded-tl-none'
+                                  }`}>
+                                    {msg.text}
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {isReviewChatThinking && (
+                                <div className="flex justify-start">
+                                  <div className="bg-white/[0.03] text-white/50 border border-white/5 p-3 rounded-2xl rounded-tl-none flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-bounce"></span>
+                                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-bounce delay-100"></span>
+                                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-bounce delay-200"></span>
+                                    <span className="text-[10px] ml-1 font-mono">Academic Coach is thinking...</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Input Box Form */}
+                            <form onSubmit={(e) => handleReviewChatSubmit(e)} className="flex gap-2.5">
+                              <input 
+                                type="text" 
+                                value={reviewChatInput}
+                                onChange={(e) => setReviewChatInput(e.target.value)}
+                                disabled={isReviewChatThinking}
+                                placeholder={reviewChatInputPlaceholder}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors disabled:opacity-50"
+                              />
+                              <button 
+                                type="submit"
+                                disabled={isReviewChatThinking}
+                                className="px-5 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center"
+                              >
+                                Send
+                              </button>
+                            </form>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center justify-center gap-4">
+                            <button 
+                              onClick={startSandboxExam}
+                              className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-xs uppercase tracking-wider rounded-full transition-all cursor-pointer shadow-lg active:scale-95"
+                            >
+                              Restart Session
+                            </button>
+                            <button 
+                              onClick={() => setSandboxActive(false)}
+                              className="px-6 py-3.5 bg-white/5 border border-white/10 text-white rounded-full transition-all cursor-pointer"
+                            >
+                              Close Session
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-left animate-fadeIn">
+                          
+                          {/* Active Exam Header */}
+                          <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
+                            <div>
+                              <span className="font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45">Active Proctored Exam Manifest</span>
+                              <h3 className="text-lg font-bold text-white mt-0.5">{activeSubject || "SSIT Vision Platform Trial"}</h3>
+                            </div>
+                            <div className="flex items-center gap-4.5">
+                              <div className="text-right">
+                                <span className="font-space text-[8px] uppercase tracking-widest text-white/40 block">TIME REMAINING</span>
+                                <span className="font-mono text-emerald-400 font-semibold">{formatTime(examTimer)}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-space text-[8px] uppercase tracking-widest text-white/40 block">TRUST INDEX</span>
+                                <span className={`font-mono font-semibold ${
+                                  integrityScore >= 80 
+                                    ? "text-emerald-400" 
+                                    : integrityScore >= 50 
+                                      ? "text-amber-400" 
+                                      : "text-red-400"
+                                }`}>
+                                  {integrityScore}%
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Question Area */}
+                          <div className="mb-8">
+                            <div className="flex justify-between text-xs text-white/40 mb-3 font-mono">
+                              <span>QUESTION {currentQuestionIdx + 1} OF {questions.length}</span>
+                              <span className="text-emerald-400">Weight: 2.0 points</span>
+                            </div>
+
+                            <h4 className="text-sm font-medium text-white mb-6 leading-relaxed min-h-[48px]">
+                              {questions[currentQuestionIdx].question}
+                            </h4>
+
+                            <div className="space-y-3">
+                              {questions[currentQuestionIdx].options.map((opt, oIdx) => (
+                                <div 
+                                  key={oIdx}
+                                  onClick={() => handleSelectAnswer(questions[currentQuestionIdx].id, oIdx)}
+                                  className={`border rounded-xl p-4 cursor-pointer text-xs transition-colors ${
+                                    selectedAnswers[questions[currentQuestionIdx].id] === oIdx 
+                                      ? "border-emerald-500 bg-emerald-500/5 text-emerald-200" 
+                                      : "border-white/5 hover:border-white/10 hover:bg-white/[0.01] text-white/80"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-mono shrink-0 ${
+                                      selectedAnswers[questions[currentQuestionIdx].id] === oIdx 
+                                        ? "border-emerald-500 text-emerald-400" 
+                                        : "border-white/20 text-white/40"
+                                    }`}>
+                                      {String.fromCharCode(65 + oIdx)}
+                                    </span>
+                                    <span>{opt}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Navigation Buttons inside quiz */}
+                          <div className="flex justify-between items-center pt-6 border-t border-white/5">
+                            <div className="flex items-center gap-2">
+                              <button 
+                                disabled={currentQuestionIdx === 0}
+                                onClick={() => setCurrentQuestionIdx(prev => Math.max(0, prev - 1))}
+                                className="px-4 py-2 border border-white/10 rounded-xl text-xs hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                              >
+                                Previous
+                              </button>
+                              <button 
+                                disabled={currentQuestionIdx === questions.length - 1}
+                                onClick={() => setCurrentQuestionIdx(prev => Math.min(questions.length - 1, prev + 1))}
+                                className="px-4 py-2 border border-white/10 rounded-xl text-xs hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                              >
+                                Next
+                              </button>
+                            </div>
+
+                            {currentQuestionIdx === questions.length - 1 ? (
+                              <button 
+                                onClick={handleSandboxSubmit}
+                                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold font-space text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-md shadow-emerald-500/10 active:scale-95"
+                              >
+                                Submit Exam
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-white/30 font-mono tracking-wider">SELECT OPTION TO LOG PROGRESS</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right Column: Live Webcam Stream with Overlay Canvas */}
+                    <div className="lg:col-span-5 space-y-6 text-left">
+                      
+                      {/* Live Camera Feed Container */}
+                      <div className="bg-[#080808] border border-white/10 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+                        <span className="font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 block mb-4 font-bold">Active Vision Tracking Canvas</span>
+                        
+                        <div className="relative aspect-video bg-neutral-950 border border-white/5 rounded-2xl overflow-hidden flex flex-col justify-between p-4">
+                          
+                          {/* Actual webcam stream element */}
+                          {webcamStream && cameraActive ? (
+                            <video
+                              ref={videoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                            />
+                          ) : null}
+
+                          {/* Automated precise biometric landmark drawing canvas */}
+                          {sandboxActive && !examSubmitted && cameraActive && (
+                            <canvas
+                              ref={canvasRef}
+                              className="absolute inset-0 w-full h-full pointer-events-none z-20"
+                            />
+                          )}
+
+                          {/* Simulated offline webcam placeholder state */}
+                          {!cameraActive && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 text-center">
+                              <div className="text-center">
+                                <Video className="w-12 h-12 text-white/10 mx-auto mb-3" />
+                                <span className="text-xs text-white/45 font-light">Camera verification stream offline</span>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex justify-between items-start z-10 pointer-events-none">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-black/60 rounded border border-white/10 text-[9px] font-mono">
+                              <span className={`w-1.5 h-1.5 rounded-full ${sandboxActive && !examSubmitted && cameraActive ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`}></span>
+                              {sandboxActive && !examSubmitted && cameraActive ? "BIO_MESH_OVERLAY" : "BIO_OFFLINE"}
+                            </span>
+                            <span className="text-[9px] text-white/30 font-mono">DEV_PREVIEW</span>
+                          </div>
+
+                          <div className="flex justify-between items-end z-10 pointer-events-none">
+                            <span className="text-[9px] text-white/30 font-mono">UTC: {new Date().toISOString().substring(11, 19)}</span>
+                            <span className="text-[8px] text-emerald-400 font-mono tracking-wider">99.4% ACCURACY</span>
+                          </div>
+                        </div>
+
+                        {cameraPermission === "denied" && (
+                          <div className="mt-3 bg-red-500/10 border border-red-500/25 p-3.5 rounded-xl text-[11px] text-red-400 leading-relaxed font-light flex items-start gap-2.5">
+                            <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-red-400" />
+                            <div>
+                              <strong className="font-semibold text-red-200">Hardware Access Refused</strong>
+                              <p className="mt-0.5 text-red-400/80">Please adjust your browser site preferences to grant proctoring camera authorization checks.</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Manual Violation Event Injector */}
+                      <div className="bg-[#080808] border border-white/10 rounded-3xl p-5 shadow-2xl relative">
+                        <span className="font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 block mb-4 font-bold">Inject Simulated Vision Flags</span>
+                        
+                        <div className="space-y-3">
+                          <button 
+                            disabled={!sandboxActive || examSubmitted}
+                            onClick={() => toggleViolationFlag("lookaway")}
+                            className={`w-full text-left p-3.5 rounded-2xl border text-xs flex justify-between items-center transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer ${
+                              flagLookAway 
+                                ? "border-amber-500 bg-amber-500/5 text-amber-200" 
+                                : "border-white/5 hover:border-white/10 text-white/80"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Eye className="w-4.5 h-4.5 text-amber-400" />
+                              <div>
+                                <div className="font-semibold">Simulate Look-Away Gaze</div>
+                                <p className="text-[10px] text-white/40 mt-0.5">Triggers head yaw rotation beyond bounds warning.</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono uppercase font-bold text-amber-500">{flagLookAway ? "ACTIVE" : "INJECT"}</span>
+                          </button>
+
+                          <button 
+                            disabled={!sandboxActive || examSubmitted}
+                            onClick={() => toggleViolationFlag("multiface")}
+                            className={`w-full text-left p-3.5 rounded-2xl border text-xs flex justify-between items-center transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer ${
+                              flagMultiFace 
+                                ? "border-red-500 bg-red-500/5 text-red-200" 
+                                : "border-white/5 hover:border-white/10 text-white/80"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Users className="w-4.5 h-4.5 text-red-400" />
+                              <div>
+                                <div className="font-semibold">Simulate Multiple Faces</div>
+                                <p className="text-[10px] text-white/40 mt-0.5">Triggers secondary human contour warning.</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono uppercase font-bold text-red-500">{flagMultiFace ? "ACTIVE" : "INJECT"}</span>
+                          </button>
+
+                          <button 
+                            disabled={!sandboxActive || examSubmitted}
+                            onClick={() => toggleViolationFlag("phone")}
+                            className={`w-full text-left p-3.5 rounded-2xl border text-xs flex justify-between items-center transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer ${
+                              flagPhone 
+                                ? "border-red-500 bg-red-500/5 text-red-200" 
+                                : "border-white/5 hover:border-white/10 text-white/80"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Smartphone className="w-4.5 h-4.5 text-red-400" />
+                              <div>
+                                <div className="font-semibold">Simulate Cellphone Presence</div>
+                                <p className="text-[10px] text-white/40 mt-0.5">Triggers YOLO electronic shape detector.</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono uppercase font-bold text-red-500">{flagPhone ? "ACTIVE" : "INJECT"}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
