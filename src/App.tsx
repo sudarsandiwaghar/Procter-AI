@@ -996,10 +996,16 @@ export default function App() {
     const u = loginUsername.trim().toLowerCase();
     const p = loginPassword.trim();
 
-    // Match credentials from simulated registeredUsers database
+    // Enforce logging in with Mail ID
+    if (!u.includes("@")) {
+      setLoginError("Please enter a valid Mail ID (Institutional Email, e.g. sudar@ssit.edu).");
+      return;
+    }
+
+    // Match credentials strictly via Mail ID / Email from simulated registeredUsers database
     const matchedUser = registeredUsers.find(
       (user) => 
-        (user.name.toLowerCase() === u || user.email.toLowerCase() === u) && 
+        user.email.toLowerCase() === u && 
         user.password === p
     );
 
@@ -1009,21 +1015,21 @@ export default function App() {
         setLoggedInStudentName(matchedUser.name);
         setLoginUsername("");
         setLoginPassword("");
-        triggerViolation(`Student security clearance verified (User: ${matchedUser.name})`, "INFO", "Active Directory", "AUTH_STU_MATCH");
+        triggerViolation(`Student security clearance verified (Mail ID: ${matchedUser.email})`, "INFO", "Active Directory", "AUTH_STU_MATCH");
       } else if (activeLoginTab === "admin" && matchedUser.role === "admin") {
         setUserRole("admin");
         setLoggedInStudentName(matchedUser.name);
         setLoginUsername("");
         setLoginPassword("");
-        triggerViolation(`Administrator security clearance verified (User: ${matchedUser.name})`, "INFO", "Active Directory", "AUTH_ADM_MATCH");
+        triggerViolation(`Administrator security clearance verified (Mail ID: ${matchedUser.email})`, "INFO", "Active Directory", "AUTH_ADM_MATCH");
       } else {
         setLoginError(`Role mismatch. This credential belongs to a ${matchedUser.role} portal.`);
       }
     } else {
       setLoginError(
         activeLoginTab === "student"
-          ? "Invalid Student credentials. (Hint: Sudar / Root, or sign up for a new account)"
-          : "Invalid Faculty Admin credentials. (Hint: Sudarsan / Root)"
+          ? "Invalid Student credentials. (Hint: Use sudar@ssit.edu / Root, or sign up for a new account)"
+          : "Invalid Faculty Admin credentials. (Hint: Use sudarsan@ssit.edu / Root)"
       );
     }
   };
@@ -2855,12 +2861,12 @@ export default function App() {
               <form onSubmit={handleLogin} className="space-y-4 text-left animate-fadeIn">
                 <div>
                   <label className="block text-[10px] font-space text-[#EBEBEB]/60 uppercase tracking-widest font-bold mb-1.5">
-                    Clearance Identity (Username / Email)
+                    Institutional Mail ID (Email)
                   </label>
                   <input
-                    type="text"
+                    type="email"
                     required
-                    placeholder={activeLoginTab === "student" ? "Sudar" : "Sudarsan"}
+                    placeholder={activeLoginTab === "student" ? "sudar@ssit.edu" : "sudarsan@ssit.edu"}
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
                     className="w-full bg-[#121212] border border-white/10 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500 transition-colors"
@@ -3279,9 +3285,39 @@ export default function App() {
 
                           {/* Question Area */}
                           <div className="mb-8">
+                            <div className="mb-5 bg-white/[0.02] border border-white/5 rounded-xl p-3">
+                              <div className="flex justify-between text-[10px] text-white/40 mb-2 font-mono uppercase tracking-wider">
+                                <span>Question Navigator Panel (Click to switch)</span>
+                                <span className="text-emerald-400">Weight: 2.0 pts</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {questions.map((q, idx) => {
+                                  const isAnswered = selectedAnswers[q.id] !== undefined;
+                                  const isActive = idx === currentQuestionIdx;
+                                  return (
+                                    <button
+                                      key={q.id}
+                                      type="button"
+                                      onClick={() => setCurrentQuestionIdx(idx)}
+                                      className={`w-7.5 h-7.5 rounded-lg font-space text-[11px] font-bold transition-all duration-200 cursor-pointer flex items-center justify-center border ${
+                                        isActive
+                                          ? "bg-emerald-500 text-black border-emerald-400 font-extrabold shadow-md shadow-emerald-500/20"
+                                          : isAnswered
+                                            ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
+                                            : "bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:border-white/20"
+                                      }`}
+                                      title={`Switch to Question ${idx + 1}`}
+                                    >
+                                      {idx + 1}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
                             <div className="flex justify-between text-xs text-white/40 mb-3 font-mono">
                               <span>QUESTION {currentQuestionIdx + 1} OF {questions.length}</span>
-                              <span className="text-emerald-400">Weight: 2.0 points</span>
+                              <span>{Object.keys(selectedAnswers).length} / {questions.length} Answered</span>
                             </div>
 
                             <h4 className="text-sm font-medium text-white mb-6 leading-relaxed min-h-[48px]">
