@@ -555,33 +555,52 @@ export default function App() {
     }
   ];
 
-  // AI Proctoring Engine 3x3 Grid Data
+  // AI Proctoring Engine 2x2 Grid Data
   const proctoringChecks = [
-    { icon: "👁", title: "Face Detection", model: "OpenCV Haar Cascade", desc: "Verifies user presence dynamically every 500ms to ensure student remains present in front of the testing system." },
-    { icon: "🪪", title: "Face Recognition", model: "DeepFace / dlib", desc: "Cross-checks user facial landmarks against registered profile picture database to eliminate proxy test-takers." },
-    { icon: "👥", title: "Multiple Person Detection", model: "YOLOv8", desc: "Scans background contours to log and flag if external peers enter the frame to assist the candidate." },
-    { icon: "↔", title: "Head Pose Estimation", model: "MediaPipe + OpenCV", desc: "Tracks yaw and pitch angles of head to detect if student continuously shifts gaze away from the active screen." },
-    { icon: "👀", title: "Eye Gaze Tracking", model: "MediaPipe Face Mesh", desc: "Extracts pupil and iris landmarks to trace precise gaze projection vector, identifying reading deviation." },
-    { icon: "📱", title: "Mobile Phone Detection", model: "YOLOv8 Weights", desc: "Real-time object detection targeting electronic handheld device contours within client web view." },
-    { icon: "🖥", title: "Tab Switch Detection", model: "Browser Visibility API", desc: "Detects immediate window focus loss and logs event if student opens secondary tabs to lookup answers." },
-    { icon: "🔊", title: "Voice & Noise Detection", model: "Web Audio API", desc: "Continuously captures decibel threshold anomalies and isolates human voice frequencies from environment hum." },
-    { icon: "🫀", title: "Liveness Detection", model: "Anti-Spoofing Model", desc: "Analyzes facial texture, eye blinks, and dynamic micro-movements to block screen-mirroring or printed photo tricks." }
+    { 
+      icon: "👁", 
+      title: "Face Presence Verification", 
+      model: "MediaPipe Face Detection via TensorFlow.js", 
+      badge: "CLIENT-SIDE ONLY",
+      desc: "Verifies face is present at exam start. Continuously checks throughout session. Prolonged absence (configurable threshold) triggers warning + logs event." 
+    },
+    { 
+      icon: "↔", 
+      title: "Gaze Direction Tracking", 
+      model: "MediaPipe FaceMesh landmarks", 
+      badge: "NO SERVER UPLOAD",
+      desc: "Infers whether student is looking at the screen or away using facial landmark geometry. Repeated off-screen gaze events are logged and contribute to suspicion score." 
+    },
+    { 
+      icon: "👥", 
+      title: "Multiple Person Detection", 
+      model: "MediaPipe Face Detection (face count)", 
+      badge: "FRAME ANALYZED IN BROWSER",
+      desc: "Flags if more than one face appears in the webcam frame. Single occurrence raises suspicion; multiple occurrences trigger high-severity alert." 
+    },
+    { 
+      icon: "🖥", 
+      title: "Browser Behavioural Signals", 
+      model: "Page Visibility API + Window blur/focus events", 
+      badge: "NO AI MODEL NEEDED",
+      desc: "Tab-visibility-change events, window blur/focus events are captured. Max tab-switch warnings configurable by examiner before auto-flag threshold." 
+    }
   ];
 
   // Tech Stack details
   const techStackRows = [
-    { layer: "Frontend", tech: "React.js + Tailwind", purpose: "UI, Interactive State & Live Logging Simulation", status: "Active" },
-    { layer: "Backend", tech: "FastAPI (Python)", purpose: "High-performance REST API endpoints & Exam orchestration", status: "Active" },
-    { layer: "Database", tech: "MySQL / NoSQL", purpose: "Persistent storage of candidates, logs, exam templates, and results", status: "Active" },
-    { layer: "Face Detection", tech: "OpenCV Haar Cascade", purpose: "Instant local camera presence check every 500ms", status: "Active" },
-    { layer: "Face Recognition", tech: "DeepFace / dlib", purpose: "Authentication verification at session initialization", status: "Active" },
-    { layer: "Object Detection", tech: "YOLOv8", purpose: "Simultaneous target counting (multiple persons + mobile device contours)", status: "Active" },
-    { layer: "Pose / Gaze", tech: "MediaPipe Face Mesh", purpose: "Calculation of 468 3D facial landmark coordinates for pitch/yaw vectors", status: "Active" },
-    { layer: "ML Evaluation", tech: "Scikit-Learn / Random Forest", purpose: "Intelligent analytics, difficulty tier correlation, and progress forecasting", status: "Active" },
-    { layer: "Emotion Detection", tech: "DeepFace Emotion", purpose: "Optional stress level tracking and cognitive load assessment", status: "In Progress" },
-    { layer: "Report Generation", tech: "ReportLab / PDFKit", purpose: "Auto-generating comprehensive audit logs & grading PDFs for faculty", status: "In Progress" },
-    { layer: "Authentication", tech: "JWT (JSON Web Tokens)", purpose: "Secure role-based route protection for Student and Admin sessions", status: "Active" },
-    { layer: "Deployment", tech: "Vercel + Railway", purpose: "Scalable continuous integration and container hosting", status: "In Progress" }
+    { layer: "Frontend", tech: "Next.js (React)", purpose: "Exam UI, results dashboard, grading portal", status: "Active" },
+    { layer: "Backend", tech: "FastAPI (Python)", purpose: "REST API, exam logic, WebSocket", status: "Active" },
+    { layer: "Database", tech: "PostgreSQL", purpose: "All persistent data + proctor_events", status: "Active" },
+    { layer: "ORM", tech: "SQLAlchemy + Alembic", purpose: "Schema management + migrations", status: "Active" },
+    { layer: "Auth", tech: "JWT + python-jose", purpose: "Role-based session management", status: "Active" },
+    { layer: "Scheduling", tech: "APScheduler", purpose: "Auto-submit on timeout", status: "Active" },
+    { layer: "AI Proctoring", tech: "MediaPipe via TensorFlow.js", purpose: "Face detection, gaze, multi-person (client-side)", status: "Active" },
+    { layer: "LLM Grading", tech: "OpenAI GPT-4o", purpose: "Subjective answer evaluation", status: "Active" },
+    { layer: "OCR", tech: "Tesseract / Google Vision", purpose: "Handwritten answer text extraction", status: "Active" },
+    { layer: "Deployment", tech: "Docker Compose", purpose: "FastAPI + PostgreSQL + Next.js", status: "Active" },
+    { layer: "Load Testing", tech: "Locust / k6", purpose: "API stress testing", status: "Active" },
+    { layer: "API Docs", tech: "FastAPI Swagger", purpose: "Auto-generated at /docs", status: "Active" }
   ];
 
   // Effect to increment stats naturally on mount
@@ -1144,13 +1163,12 @@ export default function App() {
         {/* Navigation Links */}
         <div className="hidden lg:flex items-center gap-8">
           {[
-            { id: "hero", label: "Overview" },
-            { id: "user-roles", label: "Roles" },
-            { id: "ai-proctoring", label: "Proctoring" },
-            { id: "performance", label: "Evaluation" },
+            { id: "hero", label: "Features" },
             { id: "how-it-works", label: "How It Works" },
             { id: "tech-stack", label: "Tech Stack" },
-            { id: "dashboard", label: "Dashboard" }
+            { id: "ai-proctoring", label: "Proctoring" },
+            { id: "performance", label: "Grading" },
+            { id: "system-architecture", label: "Architecture" }
           ].map(tab => (
             <a 
               key={tab.id}
@@ -1160,13 +1178,13 @@ export default function App() {
                 const el = document.getElementById(tab.id);
                 if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
-              className={`relative text-xs tracking-wider uppercase font-medium transition-colors hover:text-emerald-400 py-1 font-space ${
+              className={`relative text-[14px] tracking-wider transition-colors hover:text-emerald-400 py-1 font-sans ${
                 activeSection === tab.id ? "text-emerald-400 font-semibold" : "text-[#EBEBEB]/60"
               }`}
             >
               {tab.label}
               {activeSection === tab.id && (
-                <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-emerald-500 rounded-full" />
+                <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-[#10B981] rounded-full" />
               )}
             </a>
           ))}
@@ -1178,9 +1196,9 @@ export default function App() {
               const el = document.getElementById("dashboard");
               if (el) el.scrollIntoView({ behavior: "smooth" });
             }}
-            className="text-xs font-semibold px-4.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-[#050505] rounded-full transition-all duration-300 font-space tracking-wide shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/40 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+            className="text-xs font-semibold px-4.5 py-2 bg-transparent hover:bg-emerald-500/10 border border-[#10B981] text-[#10B981] rounded-full transition-all duration-300 font-space tracking-wide shadow-md hover:shadow-[#10B981]/20 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
           >
-            Launch Live Sandbox
+            Explore Platform
           </button>
         </div>
       </nav>
@@ -1211,20 +1229,20 @@ export default function App() {
           {/* Left Column */}
           <div className="lg:col-span-7 text-left flex flex-col items-start">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full mb-6">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="font-space text-[10px] text-[#EBEBEB]/70 uppercase tracking-widest font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
+              <span className="font-space text-[10px] text-[#EBEBEB]/70 uppercase tracking-widest font-bold">
                 ● INDIVIDUAL PROJECT · SSIT · 2025
               </span>
             </div>
 
-            <h1 className="font-serif text-5xl md:text-7xl font-bold tracking-tight leading-[0.95] text-white">
+            <h1 className="font-serif text-[48px] md:text-[96px] font-bold tracking-tight leading-[0.9] text-[#EBEBEB]">
               Examination<br />
-              Reimagined with<br />
-              <span className="text-emerald-400 italic font-normal">Intelligent</span> Eyes
+              Integrity Through<br />
+              <span className="text-[#10B981] italic font-normal">Intelligent</span> Eyes
             </h1>
 
-            <p className="mt-6 text-[#EBEBEB]/60 text-base md:text-lg font-light leading-relaxed max-w-xl">
-              ProctorAI combines real-time browser-based computer vision, multi-model AI proctoring, and intelligent performance analytics — the most complete exam integrity platform built for modern education.
+            <p className="mt-6 text-[#EBEBEB]/50 text-sm md:text-[18px] font-light leading-[1.7] max-w-[500px]">
+              A full-stack AI-proctored examination platform combining FastAPI, Next.js, MediaPipe, and GPT-4o — from timed exam sessions to LLM-graded subjective answers and live suspicion scoring.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
@@ -1233,160 +1251,188 @@ export default function App() {
                   const el = document.getElementById("ai-proctoring");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="inline-flex items-center gap-2 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-full font-space text-xs uppercase tracking-wider transition-all duration-300 shadow-xl shadow-emerald-500/10 hover:shadow-emerald-500/35 hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#EBEBEB] hover:bg-white text-[#050505] font-semibold rounded-full font-space text-xs uppercase tracking-wider transition-all duration-300 shadow-xl shadow-white/5 hover:-translate-y-0.5"
               >
                 Explore Features <ArrowRight className="w-4 h-4" />
               </button>
               <button 
                 onClick={() => {
-                  const el = document.getElementById("tech-stack");
+                  const el = document.getElementById("system-architecture");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="inline-flex items-center gap-2 px-6 py-3.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-space text-xs uppercase tracking-wider rounded-full transition-all duration-300"
+                className="inline-flex items-center gap-2 px-6 py-3.5 bg-transparent border border-white/20 hover:bg-white/5 text-white font-space text-xs uppercase tracking-wider rounded-full transition-all duration-300 hover:-translate-y-0.5"
               >
-                View AI Stack
+                View Architecture
               </button>
             </div>
           </div>
 
           {/* Right Column — Overlapping Floating UI Mockup Cards */}
-          <div className="lg:col-span-5 relative h-[450px] lg:h-[500px] w-full flex items-center justify-center">
+          <div className="lg:col-span-5 relative h-[500px] w-full flex items-center justify-center">
             
-            {/* Card A — Webcam Monitor (top-left) */}
-            <div className="absolute top-[5%] left-[5%] w-[220px] bg-white/[0.02] backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl shadow-black/80 hover:-translate-y-2 transition-transform duration-500 cursor-pointer group z-30">
-              <div className="relative aspect-video bg-neutral-950/80 rounded-lg overflow-hidden border border-emerald-500/20 mb-3 flex items-center justify-center">
-                <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/60 px-1.5 py-0.5 rounded text-[8px] font-mono text-emerald-400 border border-emerald-500/30">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
-                  LIVE_FEED
-                </div>
-                {/* Mock Camera Silhouette */}
-                <Video className="w-10 h-10 text-emerald-500/10 group-hover:text-emerald-500/25 transition-colors duration-500" />
-                {/* Scan line effect */}
-                <div className="absolute left-0 top-0 w-full h-[1px] bg-emerald-500/35 animate-scan" style={{ animationDuration: '3s' }}></div>
+            {/* Card A — Exam Session UI (top-left, -3deg rotation) */}
+            <div className="absolute top-[4%] left-[-2%] w-[250px] bg-black/40 backdrop-blur-md border border-white/10 rounded-[20px] p-4 shadow-2xl rotate-[-3deg] hover:rotate-0 hover:-translate-y-3 transition-all duration-500 z-30 cursor-pointer group">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[9px] font-mono tracking-widest text-[#EBEBEB]/40 uppercase">PROCTOR AI — EXAM IN PROGRESS</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="font-space text-[9px] uppercase tracking-wider text-emerald-400 font-bold">● FACE VERIFIED</span>
-                <span className="text-[8px] font-mono text-white/40">STU-DEMO</span>
+              <div className="flex justify-between items-center mb-3">
+                <span className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-md text-[10px] font-mono text-amber-400">⏱ 42:18 remaining</span>
+                <span className="font-space text-xs text-white font-bold">Q 12 / 40</span>
               </div>
-              <div className="mt-1.5 space-y-0.5 text-[8px] font-mono text-white/50 text-left">
-                <div>LIVENESS INDEX: <span className="text-emerald-400 font-bold">99.1%</span></div>
-                <div>IDENTITY CONFIDENCE: <span className="text-emerald-400 font-bold">97.4%</span></div>
+              {/* Mini progress bar */}
+              <div className="w-full h-1 bg-white/10 rounded-full mb-4 overflow-hidden">
+                <div className="h-full bg-[#10B981] rounded-full" style={{ width: "30%" }}></div>
               </div>
-            </div>
-
-            {/* Card B — Proctoring Alert (center-right) */}
-            <div className="absolute top-[28%] right-[5%] w-[230px] bg-[#050505]/95 backdrop-blur-md border border-red-500/30 border-l-4 border-l-red-500 rounded-2xl p-4 shadow-2xl shadow-black/90 hover:-translate-y-2 transition-transform duration-500 z-40 cursor-pointer">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-4 h-4 text-red-400" />
-                </div>
-                <div className="text-left">
-                  <div className="text-xs font-semibold text-white">Multiple Faces Detected</div>
-                  <p className="text-[10px] text-white/50 font-light mt-1">AI proctor algorithm isolated secondary human contour in frame.</p>
-                  <div className="text-[8px] font-mono text-white/30 uppercase mt-2">Logged 14:23:05 · Frame #1994</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card C — Gaze Tracker (bottom-left) */}
-            <div className="absolute bottom-[10%] left-[8%] w-[210px] bg-[#0B0B0B]/90 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl shadow-black/80 hover:-translate-y-2 transition-transform duration-500 z-20 cursor-pointer text-left">
-              <div className="flex items-center gap-2 mb-2">
-                <Eye className="w-4 h-4 text-red-400" />
-                <span className="font-space text-[9px] uppercase tracking-wider text-red-400 font-bold">GAZE DEVIATION</span>
-              </div>
-              <div className="font-mono text-[10px] text-white/80">
-                GAZE: <span className="text-red-400 font-bold">LEFT — 3.2s</span>
-              </div>
-              
-              {/* Heatmap Grid preview */}
-              <div className="grid grid-cols-5 gap-1 mt-3">
-                {[...Array(25)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="aspect-square rounded-[2px]" 
-                    style={{
-                      background: i % 4 === 0 ? "rgba(239, 68, 68, 0.4)" : i % 5 === 1 ? "rgba(239, 68, 68, 0.2)" : "rgba(16, 185, 129, 0.04)"
-                    }}
-                  />
+              {/* MCQ Options Stub */}
+              <div className="space-y-1.5 text-left">
+                {[
+                  { label: "Option A — Database Isolation Level", active: false },
+                  { label: "Option B — Optimistic Locking", active: true },
+                  { label: "Option C — Master-Slave Replication", active: false },
+                  { label: "Option D — Two-Phase Commit Protocol", active: false }
+                ].map((opt, i) => (
+                  <div key={i} className={`flex items-center gap-2 p-1.5 rounded-lg border text-[10px] ${opt.active ? 'border-[#10B981]/50 bg-[#10B981]/5 text-emerald-300' : 'border-white/5 bg-white/[0.01] text-white/50'}`}>
+                    <div className={`w-3 h-3 rounded-full border flex items-center justify-center shrink-0 ${opt.active ? 'border-[#10B981]' : 'border-white/20'}`}>
+                      {opt.active && <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />}
+                    </div>
+                    <span className="truncate">{opt.label}</span>
+                  </div>
                 ))}
               </div>
             </div>
 
-            {/* Card D — Score + Insight (bottom-right) */}
-            <div className="absolute bottom-[2%] right-[2%] w-[190px] bg-[#0B0B0B]/95 border border-white/10 rounded-2xl p-4 shadow-2xl shadow-emerald-500/5 hover:-translate-y-2 transition-transform duration-500 z-30 cursor-pointer text-left">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="font-space text-[8px] uppercase tracking-wider text-white/40">Integrity Index</span>
-                  <div className="font-serif text-5xl font-light text-emerald-400 mt-1">87<span className="text-xs text-white/40">/100</span></div>
+            {/* Card B — Proctoring Alert (top-right, +2deg rotation) */}
+            <div className="absolute top-[8%] right-[-5%] w-[240px] bg-black/60 backdrop-blur-md border border-red-500/30 border-l-[6px] border-l-red-500 rounded-[20px] p-4 shadow-2xl rotate-[2deg] hover:rotate-0 hover:-translate-y-3 transition-all duration-500 z-40 cursor-pointer text-left">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0">
+                  <span className="text-amber-500 font-bold text-sm">⚠</span>
                 </div>
-                <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-space uppercase font-bold rounded-md">PASS</span>
-              </div>
-              <div className="mt-3 pt-3 border-t border-white/5">
-                <span className="font-space text-[8px] uppercase tracking-widest text-white/30 block mb-1">AI INSIGHTS</span>
-                <p className="text-[10px] text-white/70 italic font-light">\"Strong analytical reasoning on difficult code segments.\"</p>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-white font-sans">Face absent &gt; 3s</div>
+                  
+                  {/* Suspicion score bar */}
+                  <div className="mt-2.5">
+                    <div className="flex justify-between text-[8px] font-mono text-white/40 mb-1">
+                      <span>SUSPICION SCORE</span>
+                      <span className="text-amber-400 font-bold">34 / 100</span>
+                    </div>
+                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-amber-500" style={{ width: "34%" }}></div>
+                    </div>
+                  </div>
+
+                  <div className="text-[8px] font-mono text-white/30 mt-3 pt-2.5 border-t border-white/5">
+                    Event logged · 14:23:05 · WebSocket heartbeat #7
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Background absolute pulse shapes */}
-            <div className="absolute top-1/2 left-1/2 w-48 h-48 border border-emerald-500/10 rounded-full pointer-events-none animate-ping duration-3000 -translate-x-1/2 -translate-y-1/2"></div>
-            <div className="absolute top-1/2 left-1/2 w-72 h-72 border border-emerald-500/5 rounded-full pointer-events-none animate-ping duration-[4000ms] -translate-x-1/2 -translate-y-1/2"></div>
+            {/* Card C — Gaze / FaceMesh (bottom-left, -1deg rotation) */}
+            <div className="absolute bottom-[4%] left-[-6%] w-[230px] bg-[#080808]/90 border border-white/10 rounded-[20px] p-4 shadow-2xl rotate-[-1deg] hover:rotate-0 hover:-translate-y-3 transition-all duration-500 z-20 cursor-pointer text-left">
+              <div className="flex justify-between items-center mb-2.5">
+                <span className="font-space text-[8px] text-[#EBEBEB]/40 uppercase tracking-widest font-bold">TENSORFLOW.JS · CLIENT-SIDE ONLY</span>
+                <Eye className="w-3.5 h-3.5 text-red-500" />
+              </div>
+              
+              <div className="bg-black/40 rounded-lg p-2.5 border border-red-500/10 mb-3">
+                <div className="text-xs font-bold text-red-400 font-space tracking-wide">GAZE: OFF-SCREEN · 2.8s</div>
+                <div className="text-[9px] text-[#EBEBEB]/40 mt-1 font-mono">X-offset: -12.4% · Y-offset: +8.9%</div>
+              </div>
+
+              <div className="text-[9px] font-mono text-[#EBEBEB]/30 italic">
+                No webcam frames sent to server
+              </div>
+            </div>
+
+            {/* Card D — LLM Grading (bottom-right, bottom layer, +1deg) */}
+            <div className="absolute bottom-[2%] right-[-8%] w-[240px] bg-black/55 backdrop-blur-md border border-white/10 rounded-[20px] p-4 shadow-2xl hover:-translate-y-3 transition-all duration-500 z-30 cursor-pointer text-left">
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-[8px] font-space tracking-widest text-emerald-400 font-bold uppercase">GPT-4o Evaluation</span>
+                <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 text-white/60 text-[7px] font-space uppercase rounded">Short Answer — 10 marks</span>
+              </div>
+              
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="font-serif text-4xl font-bold text-[#10B981]">7</span>
+                <span className="text-xs text-white/40">/10 Marks</span>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <div className="text-[8px] font-space text-white/30 uppercase tracking-wider mb-1">AI JUSTIFICATION</div>
+                <p className="text-[10px] text-white/60 leading-relaxed italic line-clamp-2">
+                  "Strong argument explaining ACID properties, but missed key point on isolation levels..."
+                </p>
+              </div>
+
+              <div className="mt-3 flex justify-between items-center text-[8px] font-mono text-amber-400">
+                <span className="px-1.5 py-0.5 bg-amber-400/10 border border-amber-400/20 rounded">AWAITING EXAMINER REVIEW</span>
+              </div>
+            </div>
 
           </div>
 
         </div>
       </section>
 
-      {/* SECTION 3 — STATS BAR with Count-Up on scroll style */}
+      {/* SECTION 3 — STATS BAR */}
       <section className="bg-white/[0.01] border-y border-white/5 relative z-10">
-        <div className="max-w-7xl mx-auto py-12 px-6 md:px-12 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+        <div className="max-w-7xl mx-auto py-12 px-6 md:px-12 grid grid-cols-2 md:grid-cols-5 gap-8">
           
           <div className="text-center md:text-left flex flex-col items-center md:items-start">
-            <div className="font-serif text-5xl font-extralight text-emerald-400 tracking-tight">
-              {stats.checks ? `${stats.checks}+` : "0"}
+            <div className="font-serif text-[56px] font-extralight text-[#10B981] tracking-tight leading-none">
+              5
             </div>
-            <span className="mt-2 font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 font-semibold">Proctoring Checks</span>
+            <span className="mt-3 font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold">Question Types Supported</span>
           </div>
 
           <div className="text-center md:text-left flex flex-col items-center md:items-start">
-            <div className="font-serif text-5xl font-extralight text-emerald-400 tracking-tight">
-              {stats.models ? stats.models : "0"}
+            <div className="font-serif text-[56px] font-extralight text-[#10B981] tracking-tight leading-none">
+              4
             </div>
-            <span className="mt-2 font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 font-semibold">AI Models Integrated</span>
+            <span className="mt-3 font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold">AI Proctoring Signals</span>
           </div>
 
           <div className="text-center md:text-left flex flex-col items-center md:items-start">
-            <div className="font-serif text-5xl font-extralight text-emerald-400 tracking-tight">
-              {stats.roles ? stats.roles : "0"}
+            <div className="font-serif text-[56px] font-extralight text-[#10B981] tracking-tight leading-none">
+              3
             </div>
-            <span className="mt-2 font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 font-semibold">Role-Based Modules</span>
+            <span className="mt-3 font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold">User Roles</span>
           </div>
 
           <div className="text-center md:text-left flex flex-col items-center md:items-start">
-            <div className="font-serif text-5xl font-extralight text-emerald-400 tracking-tight">
-              {stats.autoGraded ? `${stats.autoGraded}%` : "0%"}
+            <div className="font-serif text-[56px] font-extralight text-[#10B981] tracking-tight leading-none">
+              8
             </div>
-            <span className="mt-2 font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 font-semibold">Auto-graded MCQ Sets</span>
+            <span className="mt-3 font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold">Weeks · Full Dev Cycle</span>
           </div>
 
-          <div className="col-span-2 md:col-span-1 text-center md:text-left flex flex-col items-center md:items-start">
-            <div className="font-serif text-5xl font-extralight text-emerald-400 tracking-tight">
-              &lt; 0.5s
+          <div className="col-span-2 md:col-span-1 text-center md:text-left flex flex-col items-center md:items-start group relative">
+            <div className="font-serif text-[56px] font-extralight text-[#10B981] tracking-tight leading-none flex items-center gap-1.5 justify-center md:justify-start">
+              0
+              <span className="text-xs px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/20 font-sans font-bold text-emerald-400">FPS</span>
             </div>
-            <span className="mt-2 font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/45 font-semibold">Verification Latency</span>
+            <span className="mt-3 font-space text-[10px] uppercase tracking-widest text-[#EBEBEB]/45 font-bold cursor-help border-b border-dashed border-white/20">
+              Webcam Frames Sent
+            </span>
+            {/* Tooltip */}
+            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 md:left-0 md:translate-x-0 hidden group-hover:block w-56 bg-[#080808] border border-white/10 rounded-xl p-3 text-[11px] text-white/70 shadow-2xl z-50 leading-relaxed">
+              All AI model inference runs client-side via <span className="text-[#10B981] font-mono">TensorFlow.js</span> to protect user privacy. No raw video feed ever leaves the device.
+            </div>
           </div>
 
         </div>
       </section>
 
-      {/* SECTION 4 — USER ROLES */}
+      {/* SECTION 4 — THREE USER ROLES */}
       <section id="user-roles" className="py-24 px-6 md:px-12 relative z-10 max-w-7xl mx-auto">
         <div className="text-left mb-16">
-          <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">User Management System</span>
-          <h2 className="font-serif text-4xl md:text-6xl font-bold text-white mt-2">
-            Three Roles. One <span className="text-emerald-400 italic font-normal">Platform</span>.
+          <span className="font-space text-[10px] text-[#10B981] uppercase tracking-widest font-bold">USER MANAGEMENT & AUTH</span>
+          <h2 className="font-serif text-[48px] md:text-[64px] font-bold text-white mt-2 leading-none">
+            Three Roles. One <span className="text-[#10B981] italic font-normal">Platform</span>.
           </h2>
-          <p className="text-white/50 text-sm max-w-xl font-light mt-4">
-            Unified architecture addressing the complete assessment workflow from test takers to course directors.
+          <p className="text-white/50 text-[14px] font-light mt-4">
+            JWT authentication with python-jose · Role-separated routing · Short-lived exam session tokens
           </p>
         </div>
 
@@ -1396,97 +1442,133 @@ export default function App() {
           <div 
             id="role-stu"
             onMouseMove={(e) => handleCardMouseMove(e, "role-stu")}
-            className="group relative bg-white/[0.01] border border-white/5 hover:border-emerald-500/20 rounded-3xl p-8 overflow-hidden transition-all duration-300"
+            className="group relative bg-white/[0.01] border border-white/5 hover:border-[#10B981]/20 rounded-3xl p-8 overflow-hidden transition-all duration-300"
             style={{ "--mouse-x": "50%", "--mouse-y": "50%" } as React.CSSProperties}
           >
             <div className="absolute inset-0 bg-[radial-gradient(400px_circle_at_var(--mouse-x)_var(--mouse-y),rgba(16,185,129,0.06),transparent_50%)] pointer-events-none" />
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-8 border border-emerald-500/20">
-              <Users className="w-5.5 h-5.5 text-emerald-400" />
+            <div className="w-12 h-12 bg-[#10B981]/10 rounded-2xl flex items-center justify-center mb-8 border border-[#10B981]/20">
+              <Users className="w-5.5 h-5.5 text-[#10B981]" />
             </div>
-            <h3 className="font-serif text-2xl font-bold mb-4 text-white">Student Dashboard</h3>
+            <h3 className="font-serif text-2xl font-bold mb-4 text-white">Student (👤)</h3>
             
-            <ul className="space-y-3.5 text-left text-sm text-[#EBEBEB]/60 font-light">
+            <ul className="space-y-3.5 text-left text-xs text-[#EBEBEB]/60 font-light">
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Secure registration and login with local JWT sessions.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Register and login via JWT secure token</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Simple candidate verification checks using real webcam.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Receive a randomized paper unique per student ID</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Real-time proctor indicator during examination windows.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Take timed exam — MCQ, multi-select, short answer, long answer, image upload (handwritten)</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Immediate grades upon submission alongside AI diagnostics.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Webcam monitored by TensorFlow.js (MediaPipe) — client-side only</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>See violation warnings (face absent, gaze away, multiple faces)</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Submit answers; auto-submit triggers on timeout via APScheduler</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>View results dashboard: score, question-level breakdown, percentile chart, examiner feedback</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0 text-red-400"></span>
+                <span className="text-white/40 italic">Cannot see their own suspicion score or proctoring event log</span>
               </li>
             </ul>
           </div>
 
-          {/* Card 2: Faculty */}
+          {/* Card 2: Examiner */}
           <div 
             id="role-faculty"
             onMouseMove={(e) => handleCardMouseMove(e, "role-faculty")}
-            className="group relative bg-white/[0.01] border border-white/5 hover:border-emerald-500/20 rounded-3xl p-8 overflow-hidden transition-all duration-300"
+            className="group relative bg-white/[0.01] border border-white/5 hover:border-[#10B981]/20 rounded-3xl p-8 overflow-hidden transition-all duration-300"
             style={{ "--mouse-x": "50%", "--mouse-y": "50%" } as React.CSSProperties}
           >
             <div className="absolute inset-0 bg-[radial-gradient(400px_circle_at_var(--mouse-x)_var(--mouse-y),rgba(16,185,129,0.06),transparent_50%)] pointer-events-none" />
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-8 border border-emerald-500/20">
-              <Award className="w-5.5 h-5.5 text-emerald-400" />
+            <div className="w-12 h-12 bg-[#10B981]/10 rounded-2xl flex items-center justify-center mb-8 border border-[#10B981]/20">
+              <Award className="w-5.5 h-5.5 text-[#10B981]" />
             </div>
-            <h3 className="font-serif text-2xl font-bold mb-4 text-white">Faculty Portal</h3>
+            <h3 className="font-serif text-2xl font-bold mb-4 text-white">Examiner (✏️)</h3>
             
-            <ul className="space-y-3.5 text-left text-sm text-[#EBEBEB]/60 font-light">
+            <ul className="space-y-3.5 text-left text-xs text-[#EBEBEB]/60 font-light">
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Define and assign targeted curriculum topic MCQ sheets.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Create and manage question bank (MCQ, multi-select, short answer, long answer, image upload)</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Track average cohort scores, weaknesses, and strengths.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Tag questions by subject, difficulty, and marks</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Detailed comparative histograms for student performance.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Configure exam rules: duration, question count per difficulty/type, randomization mode, negative marking</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>AI recommendation templates outlining revision plans per batch.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Set proctoring thresholds: gaze sensitivity, max tab-switch warnings before auto-flag</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Review AI-graded subjective answers (GPT-4o score + justification pre-filled)</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Annotate handwritten image answers (highlight, text comment overlays)</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Bulk submit grades and publish results</span>
               </li>
             </ul>
           </div>
 
-          {/* Card 3: Administrator */}
+          {/* Card 3: Platform Admin */}
           <div 
             id="role-admin"
             onMouseMove={(e) => handleCardMouseMove(e, "role-admin")}
-            className="group relative bg-white/[0.01] border border-white/5 hover:border-emerald-500/20 rounded-3xl p-8 overflow-hidden transition-all duration-300"
+            className="group relative bg-white/[0.01] border border-white/5 hover:border-[#10B981]/20 rounded-3xl p-8 overflow-hidden transition-all duration-300"
             style={{ "--mouse-x": "50%", "--mouse-y": "50%" } as React.CSSProperties}
           >
             <div className="absolute inset-0 bg-[radial-gradient(400px_circle_at_var(--mouse-x)_var(--mouse-y),rgba(16,185,129,0.06),transparent_50%)] pointer-events-none" />
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-8 border border-emerald-500/20">
-              <Settings className="w-5.5 h-5.5 text-emerald-400" />
+            <div className="w-12 h-12 bg-[#10B981]/10 rounded-2xl flex items-center justify-center mb-8 border border-[#10B981]/20">
+              <Settings className="w-5.5 h-5.5 text-[#10B981]" />
             </div>
-            <h3 className="font-serif text-2xl font-bold mb-4 text-white">Platform Admin</h3>
+            <h3 className="font-serif text-2xl font-bold mb-4 text-white">Admin (⚙️)</h3>
             
-            <ul className="space-y-3.5 text-left text-sm text-[#EBEBEB]/60 font-light">
+            <ul className="space-y-3.5 text-left text-xs text-[#EBEBEB]/60 font-light">
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Orchestrate user accounts, registration states and tokens.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Platform-wide configuration and user management</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Query high-frequency integrity logs generated during tests.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Monitor live exam sessions and suspicion scores</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Audit server response, verification times, and database metrics.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Access full proctoring event logs with timestamps and webcam snapshots</span>
               </li>
               <li className="flex items-start gap-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2"></span>
-                <span>Review system-wide liveness logs and suspicious flag hashes.</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Schedule exam windows and assign examiners</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>Manage database migrations (Alembic) and deployment (Docker Compose)</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mt-1.5 shrink-0"></span>
+                <span>View system analytics: usage, load, and performance metrics</span>
               </li>
             </ul>
           </div>
@@ -1494,56 +1576,190 @@ export default function App() {
         </div>
       </section>
 
-      {/* SECTION 5 — AI PROCTORING MODULE */}
-      <section id="ai-proctoring" className="py-24 px-6 md:px-12 relative bg-white/[0.01] border-y border-white/5 z-10">
+      {/* SECTION 5 — QUESTION BANK & EXAM ENGINE */}
+      <section id="question-bank" className="py-24 px-6 md:px-12 max-w-7xl mx-auto z-10 relative border-t border-white/5">
+        <div className="text-left mb-16">
+          <span className="font-space text-[10px] text-[#10B981] uppercase tracking-widest font-bold">QUESTION BANK & TIMED EXAM ENGINE</span>
+          <h2 className="font-serif text-[48px] md:text-[64px] font-bold text-white mt-2 leading-none">
+            Every Question Type. <span className="text-[#10B981] italic font-normal">Server-Enforced</span> Time.
+          </h2>
+          <p className="text-white/50 text-[14px] font-light mt-4">
+            A comprehensive curriculum bank with rigorous server-side synchronization and automated constraints.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+          
+          {/* Left Column — 5 Question Type Spotlight Cards */}
+          <div className="lg:col-span-6 space-y-4">
+            {[
+              { 
+                type: "01", 
+                title: "Multiple Choice Questions (MCQ)", 
+                desc: "Single option selection with instant auto-grading capability. Perfect for quick diagnostic evaluations." 
+              },
+              { 
+                type: "02", 
+                title: "Multi-Select Checkboxes", 
+                desc: "Multiple correct options required for full marks. Tests absolute accuracy and deters luck-based guessing." 
+              },
+              { 
+                type: "03", 
+                title: "Short Answer Fields", 
+                desc: "Text input fields scored by our LLM grading pipeline, evaluating terminology and conceptual matching." 
+              },
+              { 
+                type: "04", 
+                title: "Long Essay / Synthesis Answers", 
+                desc: "Comprehensive essay inputs. Evaluated for argument flow, depth of understanding, and precise definitions." 
+              },
+              { 
+                type: "05", 
+                title: "Handwritten Sheet Image Upload", 
+                desc: "Upload photos of physical drawings or mathematical proofs. Digested via OCR prior to LLM grading evaluation." 
+              }
+            ].map((q, idx) => (
+              <div 
+                key={idx} 
+                className="p-5 bg-white/[0.01] border-l-2 border-[#10B981] border-y border-r border-white/5 rounded-r-2xl text-left hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="font-mono text-xs text-[#10B981] bg-[#10B981]/5 px-1.5 py-0.5 rounded border border-[#10B981]/20 font-bold">{q.type}</span>
+                  <h4 className="font-serif text-lg font-bold text-white">{q.title}</h4>
+                </div>
+                <p className="text-xs text-white/50 leading-relaxed font-light">{q.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Right Column — Timed Exam Engine Spec (terminal panel) */}
+          <div className="lg:col-span-6">
+            <div className="bg-[#080808] border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl font-mono text-xs text-left">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  <span className="font-space font-bold uppercase text-[10px] text-white/40 tracking-widest">TIMED EXAM SESSION ENGINE</span>
+                </div>
+                <span className="text-[10px] text-emerald-400 bg-emerald-400/5 border border-emerald-400/20 px-2 py-0.5 rounded font-bold uppercase">SECURED</span>
+              </div>
+
+              <div className="space-y-4 text-white/70">
+                <div className="flex items-start gap-3">
+                  <span className="text-[#10B981] font-bold">●</span>
+                  <div>
+                    <span className="text-white font-semibold block mb-0.5 font-sans">Session Binding Token</span>
+                    <p className="text-white/45 text-[11px] leading-relaxed">Unique JWT session token bound to student_id + exam_id on handshake.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <span className="text-[#10B981] font-bold">●</span>
+                  <div>
+                    <span className="text-white font-semibold block mb-0.5 font-sans">Start Timestamp Lock</span>
+                    <p className="text-white/45 text-[11px] leading-relaxed">Exact initiation epoch timestamp is permanently recorded on server-side database entry.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <span className="text-[#10B981] font-bold">●</span>
+                  <div>
+                    <span className="text-white font-semibold block mb-0.5 font-sans">Server-Side Time Calculation</span>
+                    <p className="text-white/45 text-[11px] leading-relaxed">Remaining time calculated server-side; local client system clocks are never trusted.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <span className="text-[#10B981] font-bold">●</span>
+                  <div>
+                    <span className="text-white font-semibold block mb-0.5 font-sans">Auto-Submit Guard (APScheduler)</span>
+                    <p className="text-white/45 text-[11px] leading-relaxed">A background daemon thread automatically freezes input structures and commits logs on exact timeout.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <span className="text-[#10B981] font-bold">●</span>
+                  <div>
+                    <span className="text-white font-semibold block mb-0.5 font-sans">Per-Question Save-on-Blur</span>
+                    <p className="text-white/45 text-[11px] leading-relaxed">Every answer state is written asynchronously to the database on select clicks or keyboard blur.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <span className="text-[#10B981] font-bold">●</span>
+                  <div>
+                    <span className="text-white font-semibold block mb-0.5 font-sans">Tab-Switch Visibility Tracker</span>
+                    <p className="text-white/45 text-[11px] leading-relaxed">Immediate blur events capture out-of-bounds clicks, checking page visibility states instantly.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <span className="text-[#10B981] font-bold">●</span>
+                  <div>
+                    <span className="text-white font-semibold block mb-0.5 font-sans">Randomization Mode (Deterministic Seed)</span>
+                    <p className="text-white/45 text-[11px] leading-relaxed">Curriculum banks are shuffled using a seed derived from the student ID, generating a unique paper sequence.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-between text-[10px] text-white/30 tracking-widest font-space font-bold">
+                <span>APS_ENGINE v2.4</span>
+                <span>STATUS: STABLE_SYNC</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* SECTION 6 — AI PROCTORING ENGINE */}
+      <section id="ai-proctoring" className="py-24 px-6 md:px-12 relative bg-white/[0.01] border-y border-white/5 z-10 animate-fadeIn">
         <div className="max-w-7xl mx-auto">
           
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">AI Proctoring Engine</span>
-            <h2 className="font-serif text-4xl md:text-5xl font-bold text-white mt-3">
-              Every Frame. <span className="text-emerald-400 italic font-normal">Every Signal.</span>
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <span className="font-space text-[10px] text-[#10B981] uppercase tracking-widest font-bold">AI PROCTORING ENGINE</span>
+            <h2 className="font-serif text-4xl md:text-[72px] font-bold text-white mt-3 leading-none">
+              Four Signals. <span className="text-[#10B981] italic font-normal">Zero Server Frames.</span>
             </h2>
-            <p className="text-[#EBEBEB]/50 text-sm font-light mt-4">
-              Ten independent proctoring channels scan user presence, focus angle, tab visibility, and surrounding frames simultaneously.
+            <p className="text-[#EBEBEB]/50 text-[14px] font-light mt-6 max-w-2xl mx-auto leading-relaxed">
+              MediaPipe Face Detection + FaceMesh run entirely via TensorFlow.js in the browser. Only derived signals — never raw webcam frames — are sent to the backend over WebSocket.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
             
-            {/* Left Column: Core Info & Dynamic Scann Ticker panel */}
+            {/* Left Column: Live Monitor Mock Panel */}
             <div className="lg:col-span-5 text-left">
               <div className="sticky top-28">
-                <h3 className="font-serif text-2xl font-bold mb-4 text-white">Parallel Stream Verification</h3>
+                <h3 className="font-serif text-2xl font-bold mb-4 text-white tracking-tight">Derived Metrics Tunnel</h3>
                 <p className="text-white/60 text-sm font-light leading-relaxed mb-6">
-                  Unlike traditional systems that require high server bandwidth to process camera streams, ProctorAI is engineered to run client-side via optimized JavaScript and WebAssembly layers.
+                  Web browsers execute real-time 3D landmark mesh modeling on device. Rather than wasting raw streaming video bandwidth and invading student privacy, only coordinates and violation states are compiled.
                 </p>
 
                 {/* Simulated Scan Console panel */}
-                <div className="bg-black border border-white/10 rounded-2xl p-5 shadow-xl relative overflow-hidden font-mono text-xs">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-3 text-[10px] text-white/40">
+                <div className="bg-[#080808] border border-white/10 rounded-2xl p-5 shadow-xl relative overflow-hidden font-mono text-xs">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-3 text-[10px] text-white/40 font-space font-bold tracking-widest">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></span>
+                      <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full animate-ping"></span>
                       proctor_cv_analyzer.sh — ACTIVE
                     </span>
                     <span>FPS: 30</span>
                   </div>
 
                   {/* Infinite ticker animation block */}
-                  <div className="space-y-2 text-left h-[180px] overflow-hidden text-emerald-400/80">
+                  <div className="space-y-2 text-left h-[180px] overflow-hidden text-[#10B981]/80">
                     <div className="animate-pulse">_ [INIT] Loading OpenCV Haar weights... Done.</div>
                     <div>_ [FEED] Webcam binding index [0] successfully mapped.</div>
-                    <div className="text-white/50">_ [03:08:41] FACE_MESH_OK — detected landmarks: 468</div>
-                    <div className="text-white/50">_ [03:08:42] GAZE_VECTOR_CENTRAL — yaw: -1.2° pitch: 3.4°</div>
-                    <div className="text-white/50">_ [03:08:43] OBJECTS_SCAN — labels: [human: 1, laptop: 1]</div>
-                    <div className="text-amber-400 font-bold">_ [03:08:44] WARN: DEVIATION_FLAG_REGISTERED (yaw &gt; 28°)</div>
-                    <div className="text-white/50">_ [03:08:45] DECIBEL_METRIC — avg: 42dB (HUM_ISOLATED)</div>
-                    <div className="text-white/50">_ [03:08:46] TAB_FOCUS_OK — active_viewport: true</div>
+                    <div className="text-white/50 font-sans">_ [03:08:41] FACE_MESH_OK — detected landmarks: 468</div>
+                    <div className="text-white/50 font-sans">_ [03:08:42] GAZE_VECTOR_CENTRAL — yaw: -1.2° pitch: 3.4°</div>
+                    <div className="text-white/50 font-sans">_ [03:08:43] OBJECTS_SCAN — labels: [human: 1, laptop: 1]</div>
+                    <div className="text-amber-400 font-bold font-sans">_ [03:08:44] WARN: DEVIATION_FLAG_REGISTERED (yaw &gt; 28°)</div>
+                    <div className="text-white/50 font-sans">_ [03:08:45] DECIBEL_METRIC — avg: 42dB (HUM_ISOLATED)</div>
+                    <div className="text-white/50 font-sans">_ [03:08:46] TAB_FOCUS_OK — active_viewport: true</div>
                   </div>
                 </div>
 
-                {/* Mini card detail selector */}
                 <div className="mt-6 bg-[#0B0B0B] border border-white/5 rounded-2xl p-4 flex gap-3 items-start text-xs">
-                  <Info className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <Info className="w-5 h-5 text-[#10B981] shrink-0 mt-0.5" />
                   <div>
                     <div className="font-semibold text-white">Interactive Highlight:</div>
                     <p className="text-white/55 font-light mt-1">
@@ -1554,42 +1770,40 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right Column: 3x3 interactive card grid */}
-            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4.5">
+            {/* Right Column: 2x2 interactive card grid */}
+            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4.5">
               {proctoringChecks.map((item, idx) => (
                 <div 
                   key={idx}
                   id={`check-${idx}`}
                   onMouseMove={(e) => handleCardMouseMove(e, `check-${idx}`)}
                   onClick={() => setSelectedProctorCheck(idx)}
-                  className={`group relative bg-white/[0.01] border rounded-2xl p-5 cursor-pointer text-left transition-all duration-300 hover:-translate-y-1 ${
+                  className={`group relative bg-white/[0.01] border rounded-2xl p-6 cursor-pointer text-left transition-all duration-300 hover:-translate-y-1 ${
                     selectedProctorCheck === idx 
-                      ? "border-emerald-500 bg-emerald-500/[0.02]" 
+                      ? "border-[#10B981] bg-[#10B981]/[0.02]" 
                       : "border-white/5 hover:border-white/10"
                   }`}
                   style={{ "--mouse-x": "50%", "--mouse-y": "50%" } as React.CSSProperties}
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(150px_circle_at_var(--mouse-x)_var(--mouse-y),rgba(16,185,129,0.06),transparent_50%)] pointer-events-none" />
                   
-                  <div className="flex items-center justify-between mb-3.5">
+                  <div className="flex items-center justify-between mb-4">
                     <span className="text-2xl">{item.icon}</span>
-                    <span className="font-space text-[8px] tracking-wider text-emerald-400 bg-emerald-400/5 px-2 py-0.5 rounded border border-emerald-400/20 font-bold uppercase">
-                      {idx + 1}
+                    <span className="font-space text-[9px] tracking-wider text-[#10B981] bg-[#10B981]/5 px-2.5 py-1 rounded border border-[#10B981]/20 font-bold uppercase">
+                      {item.badge}
                     </span>
                   </div>
 
-                  <h4 className="font-serif text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">
+                  <h4 className="font-serif text-lg font-bold text-white group-hover:text-[#10B981] transition-colors">
                     {item.title}
                   </h4>
-                  <div className="text-[9px] text-[#EBEBEB]/40 font-mono tracking-wider uppercase mt-1 mb-2">
+                  <div className="text-[10px] text-[#EBEBEB]/40 font-mono tracking-wider uppercase mt-1 mb-3">
                     {item.model}
                   </div>
                   
-                  {selectedProctorCheck === idx && (
-                    <p className="text-[11px] text-[#EBEBEB]/60 font-light leading-relaxed mt-2 animate-fadeIn">
-                      {item.desc}
-                    </p>
-                  )}
+                  <p className="text-xs text-[#EBEBEB]/60 font-light leading-relaxed">
+                    {item.desc}
+                  </p>
                 </div>
               ))}
             </div>
@@ -1599,122 +1813,154 @@ export default function App() {
         </div>
       </section>
 
-      {/* SECTION 6 — INTELLIGENT PERFORMANCE EVALUATION */}
-      <section id="performance" className="py-24 px-6 md:px-12 max-w-7xl mx-auto z-10 relative">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          {/* Left Column: Interactive Result Card Mockup */}
-          <div className="lg:col-span-6 relative flex justify-center">
+      {/* SECTION 7 — SUBJECTIVE GRADING PIPELINE */}
+      <section id="subjective-pipeline" className="py-24 px-6 md:px-12 max-w-7xl mx-auto z-10 relative">
+        
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <span className="font-space text-[10px] text-[#10B981] uppercase tracking-widest font-bold">INTELLIGENT PERFORMANCE EVALUATION</span>
+          <h2 className="font-serif text-4xl md:text-[64px] font-bold text-white mt-3 leading-none">
+            AI Scores First. <span className="text-[#10B981] italic font-normal">Examiners Decide.</span>
+          </h2>
+          <p className="text-[#EBEBEB]/50 text-[14px] font-light mt-6 leading-relaxed max-w-2xl mx-auto">
+            A secure hybrid subjective grading engine. LLM intelligence provides a pre-graded baseline draft within seconds, leaving the final authority and annotations to human examiners.
+          </p>
+        </div>
+
+        {/* SVG Flow Diagram */}
+        <div className="w-full mb-16 bg-white/[0.01] border border-white/5 rounded-3xl p-6 overflow-x-auto">
+          <div className="min-w-[800px] flex items-center justify-between px-8 py-4">
             
-            <div className="w-full max-w-xl bg-white/[0.02] backdrop-blur-md border border-white/8 text-left rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(350px_circle_at_10%_-10%,rgba(16,185,129,0.04),transparent_100%)] pointer-events-none" />
-              
-              <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
-                <div>
-                  <span className="font-space text-[9px] uppercase tracking-widest text-[#EBEBEB]/40">Active Candidate Diagnostic</span>
-                  <h3 className="font-serif text-2xl font-bold mt-1 text-white">Siddharth Kumar</h3>
-                </div>
-                <div className="text-right">
-                  <div className="text-[9px] text-white/40 font-mono">ID: STU-8821</div>
-                  <div className="text-[9px] text-emerald-400 font-mono mt-0.5">VERIFIED_BIO</div>
-                </div>
-              </div>
+            {/* Box 1 */}
+            <div className="flex flex-col items-center bg-[#080808] border border-white/10 rounded-xl p-4 w-48 text-center">
+              <span className="text-[10px] font-space text-white/40 tracking-wider uppercase mb-1">STEP 01</span>
+              <span className="text-xs text-white font-bold">Student Submits Answer</span>
+              <span className="text-[9px] text-[#10B981] mt-1">MCQ / Written / Image</span>
+            </div>
 
-              {/* Major Score indicators */}
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div>
-                  <span className="font-space text-[8px] uppercase tracking-wider text-white/40">Correctness Score</span>
-                  <div className="font-serif text-6xl font-light text-emerald-400 tracking-tight mt-1">87%</div>
-                </div>
-                <div>
-                  <span className="font-space text-[8px] uppercase tracking-wider text-white/40">Integrity Trust Rating</span>
-                  <div className="font-serif text-6xl font-light text-emerald-400 tracking-tight mt-1">94%</div>
-                </div>
-              </div>
+            {/* Arrow 1 */}
+            <div className="flex-1 flex items-center justify-center relative">
+              <div className="h-[1px] bg-white/10 w-full"></div>
+              <span className="absolute text-[18px] text-[#10B981] right-2">➔</span>
+            </div>
 
-              {/* Progress metrics */}
-              <div className="space-y-4 pt-4 border-t border-white/5">
-                <span className="font-space text-[9px] uppercase tracking-wider text-white/40">Syllabus Topic Coverage Profile</span>
-                
-                {[
-                  { topic: "Computer Vision Foundations", val: 95 },
-                  { topic: "ML Classifier Models", val: 80 },
-                  { topic: "Relational Database Design", val: 88 },
-                  { topic: "Head Gaze Projection Angles", val: 74 },
-                  { topic: "Visibility Focus Observers", val: 98 }
-                ].map((item, idx) => (
-                  <div key={idx} className="space-y-1.5">
-                    <div className="flex justify-between text-[11px] font-light">
-                      <span className="text-[#EBEBEB]/80">{item.topic}</span>
-                      <span className="text-emerald-400 font-semibold">{item.val}%</span>
-                    </div>
-                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${item.val}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Box 2 (Decision Branch) */}
+            <div className="flex flex-col items-center bg-white/5 border border-[#10B981]/20 rounded-xl p-4 w-48 text-center relative">
+              <span className="text-[10px] font-space text-white/40 tracking-wider uppercase mb-1">DECISION LAYER</span>
+              <span className="text-xs text-[#10B981] font-bold">MCQ / Multi-Select?</span>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 h-8 w-[1px] bg-dashed bg-white/10 mt-1"></div>
+              <span className="text-[9px] text-white/40 mt-1">Static Key Validation</span>
+            </div>
 
-              {/* Feedback overlay badge */}
-              <div className="mt-6 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
-                <div className="flex gap-2.5 items-start">
-                  <Award className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="text-xs font-semibold text-white">AI Evaluation Diagnosis:</div>
-                    <p className="text-[11px] text-white/60 font-light mt-0.5 italic leading-relaxed">
-                      \"Demonstrated exceptional accuracy in Visibility Focus algorithms. Minor error density identified on Gaze Head Angle geometries. Recommend reviewing Pitch/Yaw projections.\"
-                    </p>
-                  </div>
-                </div>
-              </div>
+            {/* Arrow 2 */}
+            <div className="flex-1 flex items-center justify-center relative">
+              <div className="h-[1px] bg-white/10 w-full"></div>
+              <span className="absolute text-[18px] text-[#10B981] right-2">➔</span>
+            </div>
 
+            {/* Box 3 (Subjective Path) */}
+            <div className="flex flex-col items-center bg-[#080808] border border-white/10 rounded-xl p-4 w-48 text-center">
+              <span className="text-[10px] font-space text-white/40 tracking-wider uppercase mb-1">STEP 02 (SUBJECTIVE)</span>
+              <span className="text-xs text-white font-bold">GPT-4o Evaluation Module</span>
+              <span className="text-[9px] text-amber-400 mt-1">Semantic Score Baseline</span>
+            </div>
+
+            {/* Arrow 3 */}
+            <div className="flex-1 flex items-center justify-center relative">
+              <div className="h-[1px] bg-white/10 w-full"></div>
+              <span className="absolute text-[18px] text-[#10B981] right-2">➔</span>
+            </div>
+
+            {/* Box 4 (OCR / handwritten path) */}
+            <div className="flex flex-col items-center bg-[#080808] border border-white/10 rounded-xl p-4 w-48 text-center">
+              <span className="text-[10px] font-space text-white/40 tracking-wider uppercase mb-1">STEP 03 (OCR SHIELD)</span>
+              <span className="text-xs text-white font-bold">OCR Pre-processing</span>
+              <span className="text-[9px] text-[#10B981] mt-1">Handwritten Proof Digitization</span>
             </div>
 
           </div>
+        </div>
 
-          {/* Right Column: Copy and evaluation Metrics Grid */}
-          <div className="lg:col-span-6 text-left">
-            <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Analytics Engine</span>
-            <h2 className="font-serif text-4xl md:text-5xl font-bold mt-2 text-white">
-              Results that <span className="text-emerald-400 italic font-normal">Explain</span>. Plans that <span className="text-emerald-400 italic font-normal">Guide</span>.
-            </h2>
-            <p className="text-[#EBEBEB]/60 font-light text-sm mt-4 leading-relaxed mb-8">
-              ProctorAI moves beyond binary pass/fail grades. Our Machine Learning evaluation pipeline calculates precise topic proficiency metrics and error densities, translating automated scores into customized student study plans.
-            </p>
-
-            {/* 2x3 metrics grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                { title: "Topic-wise Strengths", desc: "Isolates and highlights topics which the student solved with zero errors." },
-                { title: "Weakness Isolation", desc: "Flags low-performing chapters, tagging targeted reading suggestions." },
-                { title: "Difficulty Level Trace", desc: "Correlates accuracy against Easy, Medium, and Hard question tiers." },
-                { title: "Time-Per-Question Ratio", desc: "Plots average answering speed, flagging uncharacteristic speed spikes." },
-                { title: "Confidence index", desc: "ML projection mapping expected preparedness for advanced tests." },
-                { title: "Historical Tracking", desc: "Draws growth slopes comparing results with previous attempts." }
-              ].map((item, idx) => (
-                <div key={idx} className="border-l-2 border-emerald-500 bg-white/[0.01] p-4 rounded-r-2xl border-y border-r border-white/5">
-                  <h4 className="font-serif text-sm font-semibold text-white mb-1">{item.title}</h4>
-                  <p className="text-[11px] text-white/50 font-light leading-relaxed">{item.desc}</p>
-                </div>
-              ))}
+        {/* Two Side Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          
+          {/* Left Card: GPT-4o Grading Card */}
+          <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-6 md:p-8 text-left shadow-xl relative overflow-hidden animate-fadeIn">
+            <div className="absolute top-4 right-4 px-2.5 py-1 bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] text-[10px] font-mono rounded">
+              AUTO_PREGRADE_STABLE
+            </div>
+            
+            <span className="font-space text-[10px] uppercase tracking-widest text-emerald-400 font-bold">GPT-4o GRADING INSTANCE</span>
+            <h3 className="font-serif text-xl font-bold text-white mt-2 mb-4">Short Answer Evaluation</h3>
+            
+            <div className="bg-black/50 border border-white/5 rounded-2xl p-4 mb-4">
+              <div className="text-[9px] font-mono text-white/30 uppercase tracking-widest mb-1">STUDENT ANSWER RESPONSE:</div>
+              <p className="text-[11.5px] text-white/70 leading-relaxed font-light italic">
+                "An RDBMS index uses a balanced tree (B-Tree) structure to speed up searches. It creates a sorted copy of the columns, permitting logarithmic O(log n) search operations instead of sequential O(n) table scans. This significantly reduces random disk I/O requests."
+              </p>
             </div>
 
-            {/* Performance bands */}
-            <div className="mt-8 space-y-2.5">
-              <span className="font-space text-[8px] uppercase tracking-widest text-white/40 font-bold block mb-2">INTELLIGENT SCORING CLASSIFICATION</span>
-              {[
-                { band: "90% — 100% (EXCEPTIONAL)", color: "text-emerald-400", desc: "Syllabus master. Ready for advanced independent research projects." },
-                { band: "70% — 89% (COMPETENT)", color: "text-amber-400", desc: "Strong conceptual understanding. Advised to revise isolated weak tags." },
-                { band: "BELOW 70% (REMEDIAL)", color: "text-red-400", desc: "Requires support. Study plans automatically generated for review." }
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center gap-3 bg-neutral-900/40 px-4 py-2.5 rounded-xl border border-white/5 text-[11px]">
-                  <span className={`font-semibold shrink-0 ${item.color}`}>{item.band}</span>
-                  <span className="text-white/40">|</span>
-                  <span className="text-[#EBEBEB]/60 font-light">{item.desc}</span>
-                </div>
-              ))}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-black/50 border border-white/5 rounded-2xl p-4">
+                <div className="text-[9px] font-mono text-white/30 uppercase tracking-widest mb-1">PRELIMINARY SCORE:</div>
+                <div className="font-serif text-3xl font-bold text-[#10B981]">9.0 <span className="text-xs text-white/30">/ 10 marks</span></div>
+              </div>
+              <div className="bg-black/50 border border-white/5 rounded-2xl p-4">
+                <div className="text-[9px] font-mono text-white/30 uppercase tracking-widest mb-1">EVALUATION FOCUS:</div>
+                <div className="font-serif text-3xl font-bold text-[#10B981]">O(log n) <span className="text-xs text-white/30">Term Matched</span></div>
+              </div>
             </div>
 
+            <div className="bg-black/50 border border-white/5 rounded-2xl p-4">
+              <div className="text-[9px] font-space text-amber-400 font-bold uppercase tracking-wider mb-1">AI JUSTIFICATION TRANSCRIPT:</div>
+              <p className="text-[11px] text-white/55 leading-relaxed font-light">
+                The candidate provides an exceptionally clear explanation of B-Tree mechanics. Correctly identified both O(log n) logarithmic complexity constraints and random disk I/O savings. Deducted 1.0 mark due to missing explicit reference to node split constraints under high insertion loads.
+              </p>
+            </div>
+          </div>
+
+          {/* Right Card: Examiner Portal Preview */}
+          <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-6 md:p-8 text-left shadow-xl relative overflow-hidden animate-fadeIn">
+            <span className="font-space text-[10px] uppercase tracking-widest text-[#10B981] font-bold">HUMAN EXAMINER AUDIT RAIL</span>
+            <h3 className="font-serif text-xl font-bold text-white mt-2 mb-4">Grade Verification & Overrides</h3>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl flex items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-xs text-white font-bold">Manual Score Adjustment</h4>
+                  <p className="text-[10px] text-white/45 mt-0.5 leading-relaxed font-light">Override the auto-generated baseline marks using granular range control.</p>
+                </div>
+                <div className="flex items-center gap-1.5 bg-[#10B981]/5 border border-[#10B981]/25 rounded-xl px-3 py-1.5">
+                  <span className="text-xs text-[#10B981] font-mono font-bold">9.5 / 10</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl">
+                <h4 className="text-xs text-white font-bold mb-1.5">OCR Handwriting Canvas proofing</h4>
+                <div className="border border-dashed border-white/10 rounded-xl p-3 bg-black/40 text-center flex flex-col items-center justify-center">
+                  <span className="text-[20px] mb-1">📐</span>
+                  <span className="text-[10px] font-mono text-[#10B981] font-bold">proof_sheet_STU8821.png successfully digitized</span>
+                  <span className="text-[9px] text-white/30 mt-0.5 font-light">OCR Confidence: 98.4% · Highlight annotations enabled</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl">
+                <h4 className="text-xs text-white font-bold mb-1">Examiner Overrides Ledger</h4>
+                <ul className="space-y-2 text-[11px] font-light text-white/55">
+                  <li className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full shrink-0"></span>
+                    <span>Examiner annotated line 3 of handwritten math proof sheet.</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full shrink-0"></span>
+                    <span>Adjusted score from 9.0 to 9.5 due to outstanding proof layout.</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full shrink-0"></span>
+                    <span>Digitally signed grading transcript with Sri Sai Ram Institute credentials.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
 
         </div>
