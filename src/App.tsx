@@ -30,7 +30,9 @@ import {
   TrendingDown,
   BookOpen,
   UserCheck,
-  Download
+  Download,
+  Mail,
+  Send
 } from "lucide-react";
 import { LightRays } from "./Component";
 import { jsPDF } from "jspdf";
@@ -86,6 +88,12 @@ export default function App() {
     { name: "Sudarsan", email: "sudarsan@ssit.edu", password: "Root", role: "admin" }
   ]);
   const [loggedInStudentName, setLoggedInStudentName] = useState("Sudar");
+  const [loggedInStudentEmail, setLoggedInStudentEmail] = useState("sudar@ssit.edu");
+  const [customEmailInput, setCustomEmailInput] = useState("");
+  const [emailDeliveryStatus, setEmailDeliveryStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [emailDeliveryMessage, setEmailDeliveryMessage] = useState("");
+  const [emailDeliveryHtml, setEmailDeliveryHtml] = useState("");
+  const [showEmailPreview, setShowEmailPreview] = useState(false);
 
   // Camera & Video Streaming States
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
@@ -142,17 +150,69 @@ export default function App() {
   const [isReviewChatThinking, setIsReviewChatThinking] = useState(false);
   const [pdfDownloadedAutomatically, setPdfDownloadedAutomatically] = useState(false);
 
-  // Automatic PDF generation when exam is submitted
+  const sendEmailReport = async (overrideEmail?: string) => {
+    const targetEmail = (overrideEmail || loggedInStudentEmail).trim();
+    if (!targetEmail) return;
+
+    setEmailDeliveryStatus("sending");
+    setEmailDeliveryMessage("");
+
+    try {
+      const correctCount = getCorrectAnswersCount();
+      const totalCount = questions.length;
+      const pct = Math.round((correctCount / totalCount) * 100);
+      const title = activeSubject ? `${activeSubject} Assessment` : "SSIT Vision Platform Trial — Section A";
+
+      const payload = {
+        studentName: loggedInStudentName,
+        studentEmail: targetEmail,
+        examTitle: title,
+        scoreText: `${correctCount} / ${totalCount}`,
+        percentage: pct,
+        integrityScore: integrityScore,
+        anomalyCount: activeViolationsCount,
+        logs: logs.slice(0, 8)
+      };
+
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setEmailDeliveryStatus("success");
+        setEmailDeliveryMessage(data.message);
+        setEmailDeliveryHtml(data.html);
+      } else {
+        setEmailDeliveryStatus("error");
+        setEmailDeliveryMessage(data.error || "Failed to dispatch email report.");
+      }
+    } catch (err: any) {
+      console.error("Error dispatching email:", err);
+      setEmailDeliveryStatus("error");
+      setEmailDeliveryMessage(err.message || "Network error occurred while dispatching email report.");
+    }
+  };
+
+  // Automatic PDF generation and email report dispatch when exam is submitted
   useEffect(() => {
     if (examSubmitted && !pdfDownloadedAutomatically) {
       const timer = setTimeout(() => {
         handleDownloadPDF();
         setPdfDownloadedAutomatically(true);
+        // Automatically dispatch report to registered email address
+        sendEmailReport();
       }, 1500);
       return () => clearTimeout(timer);
     } else if (!examSubmitted) {
-      // Reset auto-download status when starting a new session
+      // Reset status when starting a new session
       setPdfDownloadedAutomatically(false);
+      setEmailDeliveryStatus("idle");
+      setEmailDeliveryMessage("");
+      setEmailDeliveryHtml("");
+      setShowEmailPreview(false);
       setReviewChatMessages([
         { sender: "ai", text: "Hello! I've analyzed your exam results. I can explain any question, suggest what topics you should focus on, give you personalized practice questions, or clarify where you lost marks. What would you like to discuss?" }
       ]);
@@ -1013,12 +1073,14 @@ export default function App() {
       if (activeLoginTab === "student" && matchedUser.role === "student") {
         setUserRole("student");
         setLoggedInStudentName(matchedUser.name);
+        setLoggedInStudentEmail(matchedUser.email);
         setLoginUsername("");
         setLoginPassword("");
         triggerViolation(`Student security clearance verified (Mail ID: ${matchedUser.email})`, "INFO", "Active Directory", "AUTH_STU_MATCH");
       } else if (activeLoginTab === "admin" && matchedUser.role === "admin") {
         setUserRole("admin");
         setLoggedInStudentName(matchedUser.name);
+        setLoggedInStudentEmail(matchedUser.email);
         setLoginUsername("");
         setLoginPassword("");
         triggerViolation(`Administrator security clearance verified (Mail ID: ${matchedUser.email})`, "INFO", "Active Directory", "AUTH_ADM_MATCH");
@@ -1068,6 +1130,7 @@ export default function App() {
     // Automatically authenticate the newly registered student
     setUserRole("student");
     setLoggedInStudentName(name);
+    setLoggedInStudentEmail(email);
     
     // Clear forms
     setSignupName("");
@@ -3106,7 +3169,7 @@ export default function App() {
                           </div>
 
                           {/* PDF Auto Generation Status Banner */}
-                          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-left">
                             <div className="flex items-start gap-3.5">
                               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
                                 <FileText className="w-5 h-5" />
@@ -3122,6 +3185,88 @@ export default function App() {
                             >
                               Download/Regenerate PDF
                             </button>
+                          </div>
+
+                          {/* Cryptographic Email Report Dispatcher Card */}
+                          <div className="bg-neutral-900/60 border border-white/5 rounded-2xl p-5 mb-6 relative overflow-hidden text-left">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                            
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                              <div className="flex items-start gap-3.5">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                                  <Mail className="w-5 h-5 animate-pulse" />
+                                </div>
+                                <div className="text-left">
+                                  <h4 className="text-xs font-semibold text-white">Cryptographic Email Report Dispatch</h4>
+                                  <p className="text-[11px] text-[#EBEBEB]/55 mt-0.5 leading-relaxed">
+                                    Send full student profile, biometric anomaly tracker records, and core academic scoring breakdown to the selected Mail ID.
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {emailDeliveryHtml && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowEmailPreview(true)}
+                                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-emerald-400 font-bold font-space text-[9px] uppercase tracking-wider rounded-lg transition-all cursor-pointer active:scale-95 shrink-0"
+                                >
+                                  Preview Ledger Email ✉
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Status Indicators */}
+                            {emailDeliveryStatus === "sending" && (
+                              <div className="bg-emerald-500/5 border border-emerald-500/15 rounded-xl p-3.5 mb-4 text-xs flex items-center gap-3 text-left">
+                                <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                                <span className="text-emerald-400/80">Dispatching assessment credentials & logs securely to {customEmailInput || loggedInStudentEmail}...</span>
+                              </div>
+                            )}
+
+                            {emailDeliveryStatus === "success" && (
+                              <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3.5 mb-4 text-xs text-left">
+                                <div className="font-semibold text-emerald-400 mb-0.5">✓ Secured Delivery Accomplished</div>
+                                <div className="text-[#EBEBEB]/70 text-[11px]">{emailDeliveryMessage}</div>
+                              </div>
+                            )}
+
+                            {emailDeliveryStatus === "error" && (
+                              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3.5 mb-4 text-xs text-left text-red-300">
+                                <div className="font-semibold text-red-400 mb-0.5">⚠️ Delivery Ledger Halted</div>
+                                <div className="text-red-300/80 text-[11px]">{emailDeliveryMessage}</div>
+                              </div>
+                            )}
+
+                            {/* Email Dispatch Input Form */}
+                            <form 
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                sendEmailReport(customEmailInput || loggedInStudentEmail);
+                              }}
+                              className="flex flex-col sm:flex-row gap-2.5"
+                            >
+                              <div className="relative flex-1">
+                                <input
+                                  type="email"
+                                  required
+                                  value={customEmailInput}
+                                  onChange={(e) => setCustomEmailInput(e.target.value)}
+                                  placeholder={loggedInStudentEmail || "Enter recipient's Mail ID..."}
+                                  className="w-full bg-[#050505] border border-white/10 hover:border-white/15 focus:border-emerald-500 rounded-xl px-4 py-3 text-xs text-white placeholder-white/20 focus:outline-none transition-all pl-10"
+                                />
+                                <div className="absolute left-3.5 top-3.5 text-white/35">
+                                  <Mail className="w-4 h-4" />
+                                </div>
+                              </div>
+                              <button
+                                type="submit"
+                                disabled={emailDeliveryStatus === "sending"}
+                                className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-semibold font-space text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shadow-md"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                {emailDeliveryStatus === "sending" ? "Sending..." : "Dispatch Ledger"}
+                              </button>
+                            </form>
                           </div>
 
                           {/* Auditor Telemetry Summary */}
@@ -3791,6 +3936,48 @@ export default function App() {
         </div>
 
       </section>
+
+      {/* Interactive Cryptographic Email Preview Modal */}
+      {showEmailPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#080808] border border-white/10 w-full max-w-4xl h-[85vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl relative">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/15 bg-[#0F0F0F]">
+              <div className="text-left">
+                <h3 className="text-sm font-bold font-space text-white uppercase tracking-wider flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  Transmitted Cryptographic Email Ledger
+                </h3>
+                <p className="text-[11px] text-white/50 font-light mt-0.5">
+                  Visual snapshot of the HTML dispatch transmitted to the mail server.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEmailPreview(false)}
+                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer active:scale-90"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Email Body Rendering */}
+            <div className="flex-1 overflow-y-auto bg-[#050505] p-4 md:p-8 flex justify-center">
+              <div 
+                className="w-full max-w-2xl bg-white text-black rounded-xl overflow-hidden shadow-2xl p-6 md:p-10 text-left"
+                dangerouslySetInnerHTML={{ __html: emailDeliveryHtml }}
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-white/10 bg-[#0F0F0F] flex justify-between items-center text-[10px] font-mono text-white/40">
+              <span>SSL/TLS Secure Delivery Protocol</span>
+              <span>SSIT Vision Platform trial v1.0.2</span>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
