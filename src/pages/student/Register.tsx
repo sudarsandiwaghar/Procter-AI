@@ -33,13 +33,15 @@ export default function StudentRegister({ onRegisterSuccess }: RegisterProps) {
       return;
     }
 
-    if (!em.includes("@")) {
-      setError("Please enter a valid email Id (e.g. candidate@ssit.edu).");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(em)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
-    if (p.length < 4) {
-      setError("Password must be at least 4 characters long.");
+    const hasNumber = /\d/.test(p);
+    if (p.length < 8 || !hasNumber) {
+      setError("Password must be at least 8 characters long and contain at least one number.");
       return;
     }
 
@@ -49,20 +51,35 @@ export default function StudentRegister({ onRegisterSuccess }: RegisterProps) {
     }
 
     // Success - create user
-    const newUser: RegisteredUser = {
-      name: n,
-      email: em,
-      phone: ph,
-      password: p,
-      role: "student"
+    const registerUser = async () => {
+      try {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: n, email: em, password: p })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const newUser: RegisteredUser = {
+            name: n,
+            email: em,
+            phone: ph,
+            password: p,
+            role: "student"
+          };
+          setSuccess("Student registration complete! Redirecting to secure login...");
+          onRegisterSuccess(newUser);
+          setTimeout(() => {
+            navigate("/student/login");
+          }, 1500);
+        } else {
+          setError(data.error || "Registration failed. Try again.");
+        }
+      } catch (err) {
+        setError("Network connection issue. Backend auth server is offline.");
+      }
     };
-
-    setSuccess("Student registration complete! Redirecting to secure login...");
-    onRegisterSuccess(newUser);
-
-    setTimeout(() => {
-      navigate("/student/login");
-    }, 1500);
+    registerUser();
   };
 
   return (
@@ -127,7 +144,7 @@ export default function StudentRegister({ onRegisterSuccess }: RegisterProps) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="sudar@ssit.edu"
+                placeholder="candidate@example.com"
                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>

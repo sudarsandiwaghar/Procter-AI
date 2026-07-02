@@ -23,7 +23,9 @@ import {
   Phone,
   X as XIcon, // avoiding duplicate X name if any
   Edit,
-  ArrowRight
+  ArrowRight,
+  MessageSquare,
+  Send
 } from "lucide-react";
 import { Log, RegisteredUser, Question, Exam } from "../../types";
 import { questionsData, SUBJECTS } from "../../questionsData";
@@ -122,6 +124,15 @@ export default function StudentWorkspace({
   // Chatbot states
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<SubmittedExamResult | null>(null);
+
+  // Floating chatbot states
+  const [floatingChatOpen, setFloatingChatOpen] = useState(false);
+  const [floatingChatInput, setFloatingChatInput] = useState("");
+  const [floatingChatMessages, setFloatingChatMessages] = useState<{sender: "user" | "ai", text: string}[]>([
+    { sender: "ai", text: "Hello! I am ProctorAI, your Academic doubts helper. Ask me any question related to computer science, engineering, or your exam prep, and I will explain it in detail!" }
+  ]);
+  const [floatingChatLoading, setFloatingChatLoading] = useState(false);
 
   // Results History Simulated database
   const [resultsHistory, setResultsHistory] = useState<SubmittedExamResult[]>([
@@ -164,6 +175,25 @@ export default function StudentWorkspace({
     };
     fetchResults();
   }, [user.email]);
+
+  // Set default selected result when results history loads
+  useEffect(() => {
+    if (resultsHistory.length > 0 && !selectedResult) {
+      setSelectedResult(resultsHistory[0]);
+    }
+  }, [resultsHistory, selectedResult]);
+
+  // Dynamically update chatbot greeting when selected result changes
+  useEffect(() => {
+    if (selectedResult) {
+      setChatMessages([
+        {
+          sender: "ai",
+          text: `Hello ${profileName}! I am your ProctorAI Tutor. I've analyzed your performance on the "${selectedResult.subject}" assessment where you scored ${selectedResult.score}/${selectedResult.total} (${selectedResult.percentage}% accuracy) with a proctoring trust rating of ${selectedResult.integrityScore}%. Ask me any questions, e.g. "Why did I lose marks?", "Explain Question 1", or ask for study tips and practice questions!`
+        }
+      ]);
+    }
+  }, [selectedResult, profileName, setChatMessages]);
 
   // Sync tab state with current sub-path
   useEffect(() => {
@@ -375,6 +405,27 @@ export default function StudentWorkspace({
     };
 
     try {
+      // Map candidate selections to server expected format for server-side grading
+      const mappedAnswers = Object.entries(selectedAnswers).map(([qIdx, ansVal]) => {
+        const q = activeQuestions[parseInt(qIdx, 10)];
+        const optionLetters = ["A", "B", "C", "D"];
+        return {
+          question_id: q.id,
+          selected_option: optionLetters[ansVal as number] || "A"
+        };
+      });
+
+      // Trigger server-side grading, PDF generation and background emailing
+      fetch("/api/exam/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: Date.now(),
+          user_id: user.email,
+          answers: mappedAnswers
+        })
+      }).catch(err => console.warn("Background exam submit grading failed:", err));
+
       const response = await fetch("/api/results", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -384,6 +435,7 @@ export default function StudentWorkspace({
         const fullResult: SubmittedExamResult = await response.json();
         setResultsHistory(prev => [fullResult, ...prev]);
         setExamSubmittedResult(fullResult);
+        setSelectedResult(fullResult);
       } else {
         // Fallback if API fails
         const fallbackResult: SubmittedExamResult = {
@@ -397,6 +449,7 @@ export default function StudentWorkspace({
         };
         setResultsHistory(prev => [fallbackResult, ...prev]);
         setExamSubmittedResult(fallbackResult);
+        setSelectedResult(fallbackResult);
       }
     } catch (err) {
       console.error("Failed to submit result to server:", err);
@@ -411,10 +464,12 @@ export default function StudentWorkspace({
       };
       setResultsHistory(prev => [fallbackResult, ...prev]);
       setExamSubmittedResult(fallbackResult);
+      setSelectedResult(fallbackResult);
     }
 
     setExamActive(false);
     triggerViolation(`Proctoring Session Locked & Finalized: ${activeSubject}`, "INFO", "Hardware Registry", "SESSION_LOCK");
+    navigate("/student/results");
   };
 
   // Auto submit on timer end
@@ -561,15 +616,15 @@ export default function StudentWorkspace({
         body: JSON.stringify({
           message: userMsg,
           history: chatMessages,
-          examResult: examSubmittedResult ? {
+          examResult: selectedResult ? {
             studentName: profileName,
             studentId: "STU-SSIT-0219",
-            examTitle: examSubmittedResult.subject,
-            correctCount: examSubmittedResult.score,
-            totalCount: examSubmittedResult.total,
-            percentage: examSubmittedResult.percentage,
-            integrityScore: examSubmittedResult.integrityScore,
-            logs: logs
+            examTitle: selectedResult.subject,
+            correctCount: selectedResult.score,
+            totalCount: selectedResult.total || 5,
+            percentage: selectedResult.percentage,
+            integrityScore: selectedResult.integrityScore,
+            logs: selectedResult.logs || logs
           } : null
         })
       });
@@ -584,6 +639,39 @@ export default function StudentWorkspace({
       setChatMessages(prev => [...prev, { sender: "ai", text: "A communication lag occurred. The server-side Gemini tutor is currently sync-locked." }]);
     } finally {
       setChatLoading(false);
+    }
+  };
+
+  // Floating Chatbot submit
+  const handleFloatingChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!floatingChatInput.trim() || floatingChatLoading) return;
+
+    const userMsg = floatingChatInput.trim();
+    setFloatingChatMessages(prev => [...prev, { sender: "user", text: userMsg }]);
+    setFloatingChatInput("");
+    setFloatingChatLoading(true);
+
+    try {
+      const response = await fetch("/api/chatbot/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.email,
+          message: userMsg
+        })
+      });
+
+      const data = await response.json();
+      if (data.reply) {
+        setFloatingChatMessages(prev => [...prev, { sender: "ai", text: data.reply }]);
+      } else {
+        setFloatingChatMessages(prev => [...prev, { sender: "ai", text: "I formulated an answer but the response format was unexpected. Try rephrasing!" }]);
+      }
+    } catch (err) {
+      setFloatingChatMessages(prev => [...prev, { sender: "ai", text: "A communication lag occurred. The server-side doubt clarification tutor is currently offline." }]);
+    } finally {
+      setFloatingChatLoading(false);
     }
   };
 
@@ -1080,38 +1168,59 @@ export default function StudentWorkspace({
                   
                   {/* Results list */}
                   <div className="lg:col-span-6 space-y-4 font-space">
-                    {resultsHistory.map((res, idx) => (
-                      <div key={idx} className="bg-[#070707] border border-white/5 rounded-2xl p-5 flex items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <h4 className="font-serif text-sm font-bold text-white leading-snug">{res.subject}</h4>
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-white/40 font-mono">
-                            <span>Score: {res.score}/{res.total}</span>
-                            <span>Integrity: {res.integrityScore}%</span>
-                            <span>Date: {res.date}</span>
+                    {resultsHistory.map((res, idx) => {
+                      const isSelected = selectedResult?.subject === res.subject && selectedResult?.date === res.date;
+                      return (
+                        <div 
+                          key={idx} 
+                          onClick={() => setSelectedResult(res)}
+                          className={`border rounded-2xl p-5 flex items-center justify-between gap-4 transition-all cursor-pointer ${
+                            isSelected 
+                              ? "bg-emerald-500/[0.04] border-emerald-500/40 shadow-lg shadow-emerald-500/[0.02]" 
+                              : "bg-[#070707] border-white/5 hover:border-white/10"
+                          }`}
+                        >
+                          <div className="space-y-1">
+                            <h4 className="font-serif text-sm font-bold text-white leading-snug">{res.subject}</h4>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-white/40 font-mono">
+                              <span>Score: {res.score}/{res.total}</span>
+                              <span>Integrity: {res.integrityScore}%</span>
+                              <span>Date: {res.date}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 shrink-0">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadReportPDF(res);
+                              }}
+                              className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/20 transition-all cursor-pointer"
+                              title="Download Cryptographic PDF Record"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
-
-                        <div className="flex gap-2 shrink-0">
-                          <button 
-                            onClick={() => handleDownloadReportPDF(res)}
-                            className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/20 transition-all cursor-pointer"
-                            title="Download Cryptographic PDF Record"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Academic chat tutor */}
                   <div className="lg:col-span-6 bg-[#070707] border border-white/10 rounded-2xl p-5 flex flex-col h-[400px]">
-                    <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-4 font-space">
-                      <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                      <div>
-                        <span className="text-[10px] font-bold text-emerald-400 block">ProctorAI Academics Chatbot</span>
-                        <span className="text-[8px] text-white/35 uppercase font-mono tracking-widest">Powered by server-side Gemini</span>
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4 font-space">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+                        <div>
+                          <span className="text-[10px] font-bold text-emerald-400 block">ProctorAI Academics Chatbot</span>
+                          <span className="text-[8px] text-white/35 uppercase font-mono tracking-widest">Powered by server-side Gemini</span>
+                        </div>
                       </div>
+                      {selectedResult && (
+                        <div className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-mono border border-emerald-500/20 uppercase tracking-wider">
+                          Context: {selectedResult.subject}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-3 text-xs mb-4 pr-1">
@@ -1311,6 +1420,83 @@ export default function StudentWorkspace({
         )}
 
       </main>
+
+      {/* FLOATING ACADEMIC DOUBTS CHATBOT */}
+      {!examActive && (
+        <div className="fixed bottom-6 right-6 z-50 font-space text-xs">
+          {floatingChatOpen ? (
+            <div className="w-80 sm:w-96 h-[480px] bg-[#070707] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fadeIn">
+              {/* Header */}
+              <div className="bg-[#0c0c0c] border-b border-white/5 p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <div>
+                    <h4 className="font-bold text-white tracking-wide">ProctorAI Doubt Tutor</h4>
+                    <span className="text-[8px] text-white/35 uppercase tracking-widest font-mono">Exam-prep assistant</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setFloatingChatOpen(false)}
+                  className="p-1 hover:bg-white/5 text-white/40 hover:text-white rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Message List */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {floatingChatMessages.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`p-3 rounded-2xl max-w-[85%] font-light leading-relaxed ${
+                      msg.sender === "user" 
+                        ? "bg-emerald-500/10 text-emerald-200 border border-emerald-500/20 rounded-tr-none text-right" 
+                        : "bg-white/5 text-white/90 border border-white/5 rounded-tl-none text-left"
+                    }`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+                {floatingChatLoading && (
+                  <div className="flex justify-start">
+                    <div className="p-3 rounded-2xl bg-white/5 text-white/40 border border-white/5 rounded-tl-none text-left animate-pulse">
+                      Tutor formulating explanation...
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Input Form */}
+              <form onSubmit={handleFloatingChatSubmit} className="p-3 border-t border-white/5 bg-[#050505] flex gap-2">
+                <input 
+                  type="text"
+                  value={floatingChatInput}
+                  onChange={(e) => setFloatingChatInput(e.target.value)}
+                  placeholder="Ask any academic question..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-emerald-500 transition-colors font-sans"
+                />
+                <button 
+                  type="submit"
+                  disabled={floatingChatLoading}
+                  className="p-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold uppercase rounded-xl transition-all cursor-pointer flex items-center justify-center disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setFloatingChatOpen(true)}
+              className="p-4 bg-emerald-500 hover:bg-emerald-400 text-black rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center justify-center border border-emerald-400/20 group relative"
+              title="Open ProctorAI Academic doubts Chatbot"
+            >
+              <Sparkles className="w-5 h-5 animate-pulse" />
+              <span className="absolute right-14 bg-black/80 text-white/90 border border-white/10 px-2 py-1 rounded text-[9px] font-mono whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                Academic Tutor डाउट्स AI
+              </span>
+            </button>
+          )}
+        </div>
+      )}
 
     </div>
   );

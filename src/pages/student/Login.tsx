@@ -25,30 +25,80 @@ export default function StudentLogin({ registeredUsers, onLoginSuccess }: LoginP
     const u = email.trim().toLowerCase();
     const p = password.trim();
 
-    if (!u.includes("@")) {
-      setError("Please enter a valid email Id (e.g. sudar@ssit.edu).");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(u)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
-    const matchedUser = registeredUsers.find(
-      (user) => 
-        user.email.toLowerCase() === u && 
-        user.password === p
-    );
-
-    if (matchedUser) {
-      if (matchedUser.role === "student") {
-        setSuccess("Authentication success! Initiating secure Student dashboard...");
-        setTimeout(() => {
-          onLoginSuccess(matchedUser);
-          navigate("/student/dashboard");
-        }, 1000);
-      } else {
-        setError(`Role mismatch. This credential belongs to the ${matchedUser.role} portal.`);
+    const loginUser = async () => {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: u, password: p })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          if (data.role === "student") {
+            setSuccess("Authentication success! Initiating secure Student dashboard...");
+            setTimeout(() => {
+              onLoginSuccess({
+                name: data.user.name,
+                email: data.user.email,
+                role: data.role,
+                phone: data.user.phone || "",
+                password: p
+              });
+              navigate("/student/dashboard");
+            }, 1000);
+          } else {
+            setError(`Role mismatch. This credential belongs to the ${data.role} portal.`);
+          }
+        } else {
+          // Fallback to client-side registeredUsers for maximum resilience if user registered only locally
+          const matchedUser = registeredUsers.find(
+            (user) => 
+              user.email.toLowerCase() === u && 
+              user.password === p
+          );
+          if (matchedUser) {
+            if (matchedUser.role === "student") {
+              setSuccess("Authentication success! Initiating secure Student dashboard...");
+              setTimeout(() => {
+                onLoginSuccess(matchedUser);
+                navigate("/student/dashboard");
+              }, 1000);
+            } else {
+              setError(`Role mismatch. This credential belongs to the ${matchedUser.role} portal.`);
+            }
+          } else {
+            setError(data.error || "Invalid Student credentials.");
+          }
+        }
+      } catch (err) {
+        // Fallback to client-side registeredUsers if offline
+        const matchedUser = registeredUsers.find(
+          (user) => 
+            user.email.toLowerCase() === u && 
+            user.password === p
+        );
+        if (matchedUser) {
+          if (matchedUser.role === "student") {
+            setSuccess("Authentication success! Initiating secure Student dashboard...");
+            setTimeout(() => {
+              onLoginSuccess(matchedUser);
+              navigate("/student/dashboard");
+            }, 1000);
+          } else {
+            setError(`Role mismatch. This credential belongs to the ${matchedUser.role} portal.`);
+          }
+        } else {
+          setError("Invalid Student credentials or auth server is offline.");
+        }
       }
-    } else {
-      setError("Invalid Student credentials. (Hint: Use sudar@ssit.edu / Root, or register a new account)");
-    }
+    };
+    loginUser();
   };
 
   return (
@@ -97,7 +147,7 @@ export default function StudentLogin({ registeredUsers, onLoginSuccess }: LoginP
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="sudar@ssit.edu"
+                placeholder="candidate@example.com"
                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 transition-colors"
               />
             </div>

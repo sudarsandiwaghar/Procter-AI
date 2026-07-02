@@ -268,8 +268,6 @@ export default function App() {
           path="/admin/*" 
           element={
             currentUser && currentUser.role === "admin" ? (
-              <Navigate to="/admin/login" replace />
-            ) : (
               <AdminWorkspace 
                 user={currentUser}
                 onLogout={handleLogout}
@@ -278,6 +276,8 @@ export default function App() {
                 logs={logs}
                 setLogs={setLogs}
               />
+            ) : (
+              <Navigate to="/admin/login" replace />
             )
           } 
         />
