@@ -511,7 +511,7 @@ export default function AdminWorkspace({
                     </div>
 
                     <div className="space-y-1.5 text-left">
-                      <label className="text-white/55 font-bold uppercase">Institutional Email ID</label>
+                      <label className="text-white/55 font-bold uppercase">Email ID</label>
                       <input 
                         type="email"
                         required
@@ -616,7 +616,7 @@ export default function AdminWorkspace({
                     </div>
 
                     <div className="space-y-1.5 text-left">
-                      <label className="text-white/55 font-bold uppercase">Institutional Email ID</label>
+                      <label className="text-white/55 font-bold uppercase">Email ID</label>
                       <input 
                         type="email"
                         required
@@ -680,7 +680,7 @@ export default function AdminWorkspace({
                   { name: "Database Management Systems", code: "DBMS-302", pool: "40 Questions Pool", author: "Systems Admin" },
                   { name: "Operating Systems", code: "OS-303", pool: "40 Questions Pool", author: "Systems Admin" },
                   { name: "Computer Networks", code: "CN-304", pool: "40 Questions Pool", author: "Systems Admin" },
-                  { name: "Aptitude & Reasoning", code: "APT-305", pool: "40 Questions Pool", author: "Systems Admin" }
+                  { name: "Aptitude & Quantitative Reasoning", code: "APT-305", pool: "40 Questions Pool", author: "Systems Admin" }
                 ].map((sub, idx) => (
                   <div key={idx} className="bg-[#070707] border border-white/5 rounded-2xl p-5 space-y-4">
                     <div className="flex justify-between items-start">
@@ -1093,7 +1093,7 @@ export default function AdminWorkspace({
                       </div>
 
                       <div className="space-y-1.5 text-left">
-                        <label className="text-white/55 font-bold uppercase tracking-wider block">Institutional Mail ID</label>
+                        <label className="text-white/55 font-bold uppercase tracking-wider block">Email ID</label>
                         <input 
                           type="email"
                           required

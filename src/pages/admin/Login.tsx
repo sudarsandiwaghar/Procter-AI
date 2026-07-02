@@ -26,7 +26,7 @@ export default function AdminLogin({ registeredUsers, onLoginSuccess }: LoginPro
     const p = password.trim();
 
     if (!u.includes("@")) {
-      setError("Please enter a valid institutional Mail ID (e.g. administrator@ssit.edu).");
+      setError("Please enter a valid email Id (e.g. administrator@ssit.edu).");
       return;
     }
 

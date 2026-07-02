@@ -441,7 +441,7 @@ export default function StudentWorkspace({
 
     doc.setFontSize(12);
     doc.text(`Candidate Name: ${profileName}`, 20, 70);
-    doc.text(`Institutional Email: ${profileEmail}`, 20, 78);
+    doc.text(`Email ID: ${profileEmail}`, 20, 78);
     doc.text(`Assessed Subject: ${res.subject}`, 20, 86);
     doc.text(`Assessment Date: ${res.date}`, 20, 94);
 
@@ -905,7 +905,7 @@ export default function StudentWorkspace({
                   <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Candidate Secure Workspace</span>
                   <h2 className="font-serif text-3xl md:text-4xl font-bold mt-1">Welcome back, <span className="text-emerald-400 italic font-normal">{profileName}</span>!</h2>
                   <p className="text-white/50 text-xs md:text-sm font-light mt-1.5 max-w-xl">
-                    Institutional Mail ID is authenticated under SSL node. Review your assigned core assessment subjects or examine previous performance recommendations below.
+                    Email ID is authenticated under SSL node. Review your assigned core assessment subjects or examine previous performance recommendations below.
                   </p>
                 </div>
 
@@ -983,15 +983,27 @@ export default function StudentWorkspace({
             <Route path="/exams" element={
               <div className="space-y-8 text-left animate-fadeIn">
                 <div>
-                  <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Upcoming Institution Exams</span>
+                  <span className="font-space text-[10px] text-emerald-400 uppercase tracking-widest font-bold">Upcoming Exams</span>
                   <h2 className="font-serif text-3xl font-bold mt-1">Pending Assessment Manifest</h2>
                   <p className="text-white/50 text-xs md:text-sm font-light mt-1.5 max-w-xl">
-                    Seeded unique exam papers are randomized per candidate from the 200 questions institutional bank.
+                    Seeded unique exam papers are randomized per candidate from the 200 questions bank.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-space">
                   {[
+                    {
+                      name: "Data Structures & Algorithms",
+                      desc: "Covers balanced trees, sorting algorithm complexities, graph traversals, and dynamic programming concepts.",
+                      code: "DSA-301",
+                      duration: "5 mins"
+                    },
+                    {
+                      name: "Database Management Systems",
+                      desc: "Covers SQL query optimization, database normalization forms, ACID transactions, and indexing structures.",
+                      code: "DBMS-302",
+                      duration: "5 mins"
+                    },
                     {
                       name: "Operating Systems",
                       desc: "Covers thread synchronization, CPU deadlocks, page replacement schemes, and file index systems.",
@@ -1005,7 +1017,7 @@ export default function StudentWorkspace({
                       duration: "5 mins"
                     },
                     {
-                      name: "Aptitude & Quantitative",
+                      name: "Aptitude & Quantitative Reasoning",
                       desc: "Covers logic distribution mechanics, permutations, dynamic timelines, speed formulas, and ratios.",
                       code: "APT-305",
                       duration: "5 mins"
@@ -1193,7 +1205,7 @@ export default function StudentWorkspace({
                         </div>
 
                         <div className="space-y-1.5 text-left">
-                          <label className="text-white/55 font-bold uppercase tracking-wider block">Institutional Mail ID</label>
+                          <label className="text-white/55 font-bold uppercase tracking-wider block">Email ID</label>
                           <input 
                             type="email"
                             required

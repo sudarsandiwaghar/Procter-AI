@@ -957,7 +957,7 @@ export default function FacultyWorkspace({
                       </div>
 
                       <div className="space-y-1.5 text-left">
-                        <label className="text-white/55 font-bold uppercase tracking-wider block">Institutional Mail ID</label>
+                        <label className="text-white/55 font-bold uppercase tracking-wider block">Email ID</label>
                         <input 
                           type="email"
                           required
