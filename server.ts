@@ -302,7 +302,7 @@ async function startServer() {
       const ai = getAiClient();
       if (ai) {
         const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
+          model: "gemini-2.5-flash",
           contents: `You are the ProctorAI Doubt Clarification Tutor, built by Google DeepMind and Sri Sai Ram Institute of Technology (SSIT).
 Your goal is to answer academic and exam preparation questions. Keep your answers clear, concise, highly professional, encouraging, and focused on learning computer science, engineering, or aptitude questions.
 If the question is unrelated to academic studies or exam preparation, politely remind the student that you are here to help with doubts or exam preparation.
@@ -364,7 +364,7 @@ Student Question: "${message}"`
         const ai = getAiClient();
         if (ai) {
           const aiResponse = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: "gemini-2.5-flash",
             contents: `You are the ProctorAI Academic Evaluator. Write a concise, constructive, encouraging 1-to-2 sentence feedback report for the student:
 Student Name: ${studentName}
 Score: ${score} / ${total} (${accuracy_pct}% Accuracy)
@@ -661,7 +661,7 @@ Ground Rules:
       });
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents,
         config: {
           systemInstruction,
@@ -929,7 +929,7 @@ Ground Rules:
         const ai = getAiClient();
         if (ai) {
           const aiResponse = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: "gemini-2.5-flash",
             contents: `You are the ProctorAI Academic Evaluator. Write a concise, constructive, encouraging 1-to-2 sentence feedback report for the student:
 Student Name: ${studentName}
 Subject: ${subject}

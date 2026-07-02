@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Shield, Mail, Lock, User, Check, ArrowLeft, Phone } from "lucide-react";
+import { Shield, Mail, Lock, User, Check, ArrowLeft, Phone, Loader2 } from "lucide-react";
 import { RegisteredUser } from "../../types";
 
 interface RegisterProps {
@@ -16,9 +16,42 @@ export default function StudentRegister({ onRegisterSuccess }: RegisterProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(true);
+  const [healthStatus, setHealthStatus] = useState<"online" | "offline" | "checking">("checking");
+
+  useEffect(() => {
+    let active = true;
+    const checkHealth = async () => {
+      try {
+        const res = await fetch("/api/health");
+        if (res.ok) {
+          if (active) {
+            setHealthStatus("online");
+            setIsCheckingHealth(false);
+          }
+        } else {
+          throw new Error(`Server status: ${res.status}`);
+        }
+      } catch (err) {
+        if (active) {
+          console.error("Backend health probe failed:", err);
+          setHealthStatus("offline");
+          setIsCheckingHealth(false);
+          setError("ProctorAI secure gateway connection is offline. Please check that the server is active.");
+        }
+      }
+    };
+    checkHealth();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     setError("");
     setSuccess("");
 
@@ -50,7 +83,8 @@ export default function StudentRegister({ onRegisterSuccess }: RegisterProps) {
       return;
     }
 
-    // Success - create user
+    setIsSubmitting(true);
+
     const registerUser = async () => {
       try {
         const res = await fetch("/api/auth/register", {
@@ -58,7 +92,16 @@ export default function StudentRegister({ onRegisterSuccess }: RegisterProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: n, email: em, password: p })
         });
-        const data = await res.json();
+        
+        let data: any = {};
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          throw new Error(text || `Server returned status ${res.status}`);
+        }
+
         if (res.ok) {
           const newUser: RegisteredUser = {
             name: n,
@@ -73,10 +116,13 @@ export default function StudentRegister({ onRegisterSuccess }: RegisterProps) {
             navigate("/student/login");
           }, 1500);
         } else {
-          setError(data.error || "Registration failed. Try again.");
+          setError(data.error || "Registration failed. Please check your credentials and try again.");
         }
-      } catch (err) {
-        setError("Network connection issue. Backend auth server is offline.");
+      } catch (err: any) {
+        console.error("Register catch error:", err);
+        setError(err.message || "Network connection issue. Backend auth server is offline.");
+      } finally {
+        setIsSubmitting(false);
       }
     };
     registerUser();
@@ -198,9 +244,22 @@ export default function StudentRegister({ onRegisterSuccess }: RegisterProps) {
 
           <button 
             type="submit"
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg active:scale-[0.98] mt-4 text-center"
+            disabled={isSubmitting || healthStatus === "offline" || isCheckingHealth}
+            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-neutral-800 disabled:text-white/40 disabled:cursor-not-allowed text-black font-semibold uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg active:scale-[0.98] mt-4 flex items-center justify-center gap-2"
           >
-            Register Student Account
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Registering...
+              </>
+            ) : isCheckingHealth ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Checking Connection...
+              </>
+            ) : healthStatus === "offline" ? (
+              "Secure Gateway Offline"
+            ) : (
+              "Register Student Account"
+            )}
           </button>
         </form>
 

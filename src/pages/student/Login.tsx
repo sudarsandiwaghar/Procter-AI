@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Shield, Eye, EyeOff, Mail, Lock, User, Check, ArrowLeft } from "lucide-react";
+import { Shield, Eye, EyeOff, Mail, Lock, User, Check, ArrowLeft, Loader2 } from "lucide-react";
 import { RegisteredUser } from "../../types";
 
 interface LoginProps {
@@ -16,9 +16,12 @@ export default function StudentLogin({ registeredUsers, onLoginSuccess }: LoginP
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     setError("");
     setSuccess("");
 
@@ -31,6 +34,8 @@ export default function StudentLogin({ registeredUsers, onLoginSuccess }: LoginP
       return;
     }
 
+    setIsSubmitting(true);
+
     const loginUser = async () => {
       try {
         const res = await fetch("/api/auth/login", {
@@ -38,7 +43,16 @@ export default function StudentLogin({ registeredUsers, onLoginSuccess }: LoginP
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: u, password: p })
         });
-        const data = await res.json();
+        
+        let data: any = {};
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          data = await res.json();
+        } else {
+          const text = await res.text();
+          throw new Error(text || `Status ${res.status}`);
+        }
+
         if (res.ok) {
           if (data.role === "student") {
             setSuccess("Authentication success! Initiating secure Student dashboard...");
@@ -96,6 +110,8 @@ export default function StudentLogin({ registeredUsers, onLoginSuccess }: LoginP
         } else {
           setError("Invalid Student credentials or auth server is offline.");
         }
+      } finally {
+        setIsSubmitting(false);
       }
     };
     loginUser();
@@ -199,9 +215,16 @@ export default function StudentLogin({ registeredUsers, onLoginSuccess }: LoginP
 
           <button 
             type="submit"
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg active:scale-[0.98] mt-2 text-center"
+            disabled={isSubmitting}
+            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-neutral-800 disabled:text-white/40 disabled:cursor-not-allowed text-black font-semibold uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
           >
-            Authenticate Credentials
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Authenticating...
+              </>
+            ) : (
+              "Authenticate Credentials"
+            )}
           </button>
         </form>
 
