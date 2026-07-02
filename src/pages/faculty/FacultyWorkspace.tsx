@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Routes, Route, Link, useNavigate, useLocation } from "react-router-dom";
 import { 
   Shield, 
@@ -17,7 +17,8 @@ import {
   Lock,
   Mail,
   Phone,
-  Settings
+  Settings,
+  X
 } from "lucide-react";
 import { RegisteredUser, Question } from "../../types";
 import { questionsData } from "../../questionsData";
@@ -65,6 +66,66 @@ export default function FacultyWorkspace({
   // Manage Questions state
   const [globalQuestions, setGlobalQuestions] = useState<Question[]>(questionsData);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+
+  // Results Ledger and Resend Hub states
+  const [results, setResults] = useState<any[]>([]);
+  const [emailLogs, setEmailLogs] = useState<any[]>([]);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [resendOverride, setResendOverride] = useState("");
+  const [activeResendResult, setActiveResendResult] = useState<any | null>(null);
+  const [resendStatusMsg, setResendStatusMsg] = useState("");
+
+  const fetchResultsData = async () => {
+    try {
+      const res = await fetch("/api/results");
+      if (res.ok) {
+        const data = await res.json();
+        setResults(data);
+      }
+      const logsRes = await fetch("/api/results/email-logs");
+      if (logsRes.ok) {
+        const logsData = await logsRes.json();
+        setEmailLogs(logsData);
+      }
+    } catch (err) {
+      console.error("Error loading results data:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchResultsData();
+    const interval = setInterval(fetchResultsData, 12000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleTriggerManualResend = async (resultId: string) => {
+    setResendingId(resultId);
+    setResendStatusMsg("");
+    try {
+      const res = await fetch("/api/results/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resultId,
+          emailOverride: resendOverride ? resendOverride.trim() : undefined,
+          senderUserId: user.email
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setResendStatusMsg("✓ Email report dispatched successfully.");
+        setResendOverride("");
+        fetchResultsData();
+        setTimeout(() => setActiveResendResult(null), 1500);
+      } else {
+        setResendStatusMsg(`✗ Send failed: ${data.error || "relay error"}`);
+      }
+    } catch (err: any) {
+      setResendStatusMsg(`✗ Network error: ${err.message}`);
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   useEffect(() => {
     const path = location.pathname;
@@ -652,6 +713,182 @@ export default function FacultyWorkspace({
                   ))}
                 </div>
               </div>
+
+              {/* Real-Time Assessment Results Ledger & Resend Hub */}
+              <div className="bg-[#070707] border border-white/10 rounded-2xl p-6 text-xs text-left space-y-6">
+                <div>
+                  <span className="font-space text-[10px] uppercase tracking-widest text-emerald-400 font-bold block">Secure Assessment Results Ledger</span>
+                  <h3 className="font-serif text-xl font-bold mt-1 text-white">Submitted Exam Reports</h3>
+                  <p className="text-white/50 text-[11px] font-light mt-1">
+                    Synchronized with the blockchain ledger. Click "Resend Email" to manually dispatch secure certificates or custom overrides.
+                  </p>
+                </div>
+
+                {results.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed border-white/5 rounded-xl">
+                    <span className="text-white/30 italic block font-space">[No exam submissions registered in this cycle]</span>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse font-space">
+                      <thead>
+                        <tr className="border-b border-white/10 text-white/40 text-[9px] uppercase tracking-wider">
+                          <th className="py-3 px-4 font-bold">Student Name</th>
+                          <th className="py-3 px-4 font-bold">Subject</th>
+                          <th className="py-3 px-4 font-bold text-center">Score</th>
+                          <th className="py-3 px-4 font-bold text-center">Integrity Index</th>
+                          <th className="py-3 px-4 font-bold">Auto Email Dispatch</th>
+                          <th className="py-3 px-4 font-bold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {results.map((res: any) => (
+                          <tr key={res.id} className="hover:bg-white/[0.01] transition-colors">
+                            <td className="py-3.5 px-4">
+                              <span className="block font-bold text-white text-xs">{res.studentName}</span>
+                              <span className="block text-[10px] text-white/40 font-mono mt-0.5">{res.studentEmail}</span>
+                            </td>
+                            <td className="py-3.5 px-4 font-mono text-[11px] text-white/80">{res.subject}</td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span className="font-bold text-emerald-400 font-mono text-xs">{res.score} / {res.total}</span>
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <span className={`font-mono text-xs font-bold ${res.integrityScore >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                {res.integrityScore}%
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {res.email_sent ? (
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center text-emerald-400 font-bold text-[10px] uppercase">
+                                    ✓ Dispatched
+                                  </span>
+                                  <span className="block text-[8px] text-white/30 font-mono">
+                                    {new Date(res.email_sent_at).toLocaleString()}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center text-red-400 font-bold text-[10px] uppercase">
+                                  ✗ Failed / Pending
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <button
+                                onClick={() => {
+                                  setActiveResendResult(res);
+                                  setResendOverride(res.studentEmail);
+                                  setResendStatusMsg("");
+                                }}
+                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-bold uppercase rounded-md tracking-wider transition-all"
+                              >
+                                Resend Email
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Email Audit Log Trails */}
+              <div className="bg-[#070707] border border-white/10 rounded-2xl p-6 text-xs text-left space-y-4">
+                <div>
+                  <span className="font-space text-[10px] uppercase tracking-widest text-emerald-400 font-bold block">Transactional Audit Stream</span>
+                  <h3 className="font-serif text-lg font-bold mt-1 text-white">Manual & System Email Dispatch Log</h3>
+                </div>
+
+                <div className="space-y-2 max-h-48 overflow-y-auto font-mono text-[10px] pr-2">
+                  {emailLogs.length === 0 ? (
+                    <span className="text-white/30 italic block text-center py-6 font-space">[No resends logged in this session]</span>
+                  ) : (
+                    emailLogs.map((log: any) => (
+                      <div key={log.id} className="border-b border-white/[0.02] pb-2 flex flex-col sm:flex-row justify-between sm:items-center gap-1">
+                        <div>
+                          <span className="text-white/35">[{new Date(log.sentAt).toLocaleTimeString()}]</span>
+                          <span className="text-emerald-400 font-bold ml-2">Result ID: {log.resultId.slice(0, 10)}</span>
+                          <span className="text-white/80 ml-2">Target: {log.targetEmail}</span>
+                        </div>
+                        <div className="flex gap-3 items-center">
+                          <span className="text-white/30 text-[9px]">Sender: {log.sentByUserId}</span>
+                          <span className={`font-bold px-1 py-0.5 rounded uppercase ${
+                            log.status === "sent" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                          }`}>{log.status}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Custom Overrides Manual Resend Modal Overlay */}
+              {activeResendResult && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                  <div className="w-full max-w-md bg-[#0D0D0D] border border-white/15 rounded-2xl p-6 space-y-4 font-space text-xs">
+                    <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                      <div>
+                        <h3 className="font-serif text-base font-bold text-white">Manual Report Override</h3>
+                        <p className="text-[10px] text-white/40 mt-0.5">Subject: {activeResendResult.subject}</p>
+                      </div>
+                      <button
+                        onClick={() => setActiveResendResult(null)}
+                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-white/60 block font-bold">Candidate</label>
+                        <div className="bg-white/5 rounded-xl px-4 py-3 text-white/90">
+                          {activeResendResult.studentName} ({activeResendResult.studentEmail})
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-white/60 block font-bold">Target Email Address (Custom Override)</label>
+                        <input
+                          type="email"
+                          value={resendOverride}
+                          onChange={(e) => setResendOverride(e.target.value)}
+                          placeholder="e.g. dean@ssit.edu (leave default if unchanged)"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                        />
+                        <span className="block text-[8px] text-white/30">
+                          Input a custom override address to bypass candidate email parameters (for auditing/records).
+                        </span>
+                      </div>
+
+                      {resendStatusMsg && (
+                        <div className={`p-3 rounded-lg text-[11px] font-bold ${
+                          resendStatusMsg.includes("✓") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                        }`}>
+                          {resendStatusMsg}
+                        </div>
+                      )}
+
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={() => setActiveResendResult(null)}
+                          className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/5 text-white font-bold uppercase rounded-xl transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleTriggerManualResend(activeResendResult.id)}
+                          disabled={resendingId !== null}
+                          className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold uppercase rounded-xl transition-all disabled:opacity-50"
+                        >
+                          {resendingId ? "Sending..." : "Dispatch Email"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           } />
 

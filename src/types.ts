@@ -30,3 +30,30 @@ export interface Exam {
   durationMinutes: number;
   totalQuestions: number;
 }
+
+export interface SubmittedExamResult {
+  id: string;
+  studentEmail: string;
+  studentName: string;
+  subject: string;
+  score: number;
+  total: number;
+  percentage: number;
+  integrityScore: number;
+  ai_feedback?: string;
+  email_sent: boolean;
+  email_sent_at?: string | null;
+  date: string;
+  logsCount: number;
+  logs?: Log[];
+}
+
+export interface EmailLog {
+  id: string;
+  resultId: string;
+  targetEmail: string;
+  sentByUserId: string;
+  status: "sent" | "failed";
+  sentAt: string;
+}
+

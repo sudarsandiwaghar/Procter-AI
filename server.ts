@@ -39,6 +39,42 @@ async function startServer() {
     return aiClient;
   }
 
+  // virtual DB rows
+  let resultsTable: any[] = [
+    {
+      id: "res-1",
+      studentEmail: "sudar@ssit.edu",
+      studentName: "Sudar S",
+      subject: "Operating Systems",
+      score: 8,
+      total: 10,
+      percentage: 80,
+      integrityScore: 92,
+      date: "2026-06-25",
+      logsCount: 2,
+      email_sent: true,
+      email_sent_at: "2026-06-25T14:30:22.000Z",
+      ai_feedback: "Excellent understanding of operating system process management. Minor lookaways flagged during multi-threading questions."
+    },
+    {
+      id: "res-2",
+      studentEmail: "sudar@ssit.edu",
+      studentName: "Sudar S",
+      subject: "Database Management Systems",
+      score: 9,
+      total: 10,
+      percentage: 90,
+      integrityScore: 100,
+      date: "2026-06-20",
+      logsCount: 0,
+      email_sent: true,
+      email_sent_at: "2026-06-20T10:15:11.000Z",
+      ai_feedback: "Superb execution. Perfect integrity trust index score. Complete database indexing coverage demonstrated."
+    }
+  ];
+
+  let emailLogsTable: any[] = [];
+
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", time: new Date().toISOString() });
@@ -168,6 +204,8 @@ Ground Rules:
     anomalyCount: number;
     logs: any[];
     simulated: boolean;
+    ai_feedback?: string;
+    cheatingThreshold?: number;
   }) {
     const dateStr = new Date().toLocaleDateString("en-US", {
       weekday: "long",
@@ -314,6 +352,34 @@ Ground Rules:
             </table>
           </div>
 
+          <!-- AI Generated Feedback Summary -->
+          ${data.ai_feedback ? `
+          <div style="background-color: rgba(16, 185, 129, 0.03); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 12px; padding: 20px; margin-bottom: 28px; text-align: left;">
+            <div style="font-weight: bold; color: #10B981; text-transform: uppercase; font-size: 9px; letter-spacing: 1px; margin-bottom: 8px;">AI-Generated Assessment Feedback</div>
+            <div style="font-size: 13px; line-height: 1.5; color: #FFFFFF; font-style: italic; font-weight: 300;">
+              "${data.ai_feedback}"
+            </div>
+          </div>
+          ` : ""}
+
+          <!-- Cheating Probability Index Alert -->
+          ${((100 - data.integrityScore) > (data.cheatingThreshold ?? 30)) ? `
+          <div style="background-color: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 28px; text-align: left;">
+            <div style="font-weight: bold; color: #EF4444; text-transform: uppercase; font-size: 9px; letter-spacing: 1.5px; margin-bottom: 8px;">⚠️ AUTOMATED COMPLIANCE FLAG</div>
+            <div style="font-size: 14px; color: #FFFFFF; font-weight: bold; margin-bottom: 6px;">Cheating Probability: ${100 - data.integrityScore}%</div>
+            <div style="font-size: 11px; line-height: 1.5; color: rgba(255, 255, 255, 0.6); font-weight: 300;">
+              This session has exceeded the safe proctoring variance threshold. Behavior indicators have been flagged for manual faculty review and audit.
+            </div>
+          </div>
+          ` : ""}
+
+          <!-- Action Button: View Full Report -->
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${process.env.APP_URL || 'http://localhost:3000'}/student/dashboard" style="background-color: #10B981; color: #000000; font-family: sans-serif; font-size: 13px; font-weight: bold; text-decoration: none; padding: 12px 24px; border-radius: 8px; display: inline-block; text-transform: uppercase; letter-spacing: 0.5px;">
+              View Full Report in Console
+            </a>
+          </div>
+
           <!-- Instructor approval footer -->
           <table style="width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 24px; border-collapse: collapse; font-size: 12px;">
             <tr>
@@ -343,7 +409,245 @@ Ground Rules:
     `;
   }
 
-  // API Route to send or simulate sending the secure proctoring exam report to student's email
+  // GET all results
+  app.get("/api/results", (req, res) => {
+    res.json(resultsTable);
+  });
+
+  // GET all email logs
+  app.get("/api/results/email-logs", (req, res) => {
+    res.json(emailLogsTable);
+  });
+
+  // POST result submission (Auto email background task inside)
+  app.post("/api/results", async (req, res) => {
+    try {
+      const {
+        studentEmail,
+        studentName,
+        subject,
+        score,
+        total,
+        percentage,
+        integrityScore,
+        logs
+      } = req.body;
+
+      if (!studentEmail) {
+        return res.status(400).json({ error: "studentEmail parameter is required." });
+      }
+
+      const logsCount = logs ? logs.length : 0;
+      const date = new Date().toISOString().split('T')[0];
+
+      // 1. Generate AI feedback server-side using Gemini
+      let aiFeedback = "Assessment successfully sealed. Great focus and performance demonstrated.";
+      try {
+        const ai = getAiClient();
+        if (ai) {
+          const aiResponse = await ai.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: `You are the ProctorAI Academic Evaluator. Write a concise, constructive, encouraging 1-to-2 sentence feedback report for the student:
+Student Name: ${studentName}
+Subject: ${subject}
+Score: ${score} / ${total} (${percentage}% Accuracy)
+Integrity Trust Index: ${integrityScore}% (Anomalies: ${logsCount}).
+Highlight their strengths and politely offer tips for improvement. Keep it brief, supportive, and formal.`,
+          });
+          if (aiResponse.text) {
+            aiFeedback = aiResponse.text.trim();
+          }
+        }
+      } catch (geminiError: any) {
+        console.warn("Gemini feedback generation bypassed or failed:", geminiError.message);
+        // Fallback rule-based feedback
+        if (percentage >= 85) {
+          aiFeedback = `Exceptional mastery of ${subject}! Your performance is highly commendable, and you maintained outstanding integrity.`;
+        } else if (percentage >= 60) {
+          aiFeedback = `Good performance in ${subject}. Review the questions you missed to reinforce your knowledge, and maintain consistent focus.`;
+        } else {
+          aiFeedback = `Keep practicing your skills in ${subject}. Take more practice assessments on our platform to build confidence.`;
+        }
+      }
+
+      // 2. Insert row into Results virtual table
+      const newResult = {
+        id: "res-" + Date.now(),
+        studentEmail,
+        studentName: studentName || "Sudar S",
+        subject,
+        score: Number(score) || 0,
+        total: Number(total) || 10,
+        percentage: Number(percentage) || 0,
+        integrityScore: Number(integrityScore) || 100,
+        ai_feedback: aiFeedback,
+        email_sent: false,
+        email_sent_at: null,
+        date,
+        logsCount,
+        logs: logs || []
+      };
+
+      resultsTable.unshift(newResult);
+
+      // 3. Asynchronously trigger auto email as a background task (returns response to client immediately)
+      const host = process.env.SMTP_HOST;
+      const user = process.env.SMTP_USER;
+      const pass = process.env.SMTP_PASS;
+      const isSmtpConfigured = !!(host && user && pass);
+
+      // We do NOT await this promise; Node event loop runs it asynchronously
+      (async () => {
+        try {
+          const emailHtml = generateReportEmailHtml({
+            studentName: newResult.studentName,
+            studentEmail: newResult.studentEmail,
+            examTitle: newResult.subject,
+            scoreText: `${newResult.score} / ${newResult.total}`,
+            percentage: newResult.percentage,
+            integrityScore: newResult.integrityScore,
+            anomalyCount: newResult.logsCount,
+            logs: newResult.logs,
+            simulated: !isSmtpConfigured,
+            ai_feedback: newResult.ai_feedback
+          });
+
+          if (isSmtpConfigured) {
+            const transporter = nodemailer.createTransport({
+              host,
+              port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+              secure: process.env.SMTP_SECURE === "true",
+              auth: { user, pass }
+            });
+            const sender = process.env.SENDER_EMAIL || user || "proctorai@ssit.edu";
+            await transporter.sendMail({
+              from: `"ProctorAI - SSIT" <${sender}>`,
+              to: newResult.studentEmail,
+              subject: `[ProctorAI Ledger] Assessment Report - ${newResult.subject}`,
+              html: emailHtml
+            });
+          }
+
+          // Update result in database on success
+          newResult.email_sent = true;
+          newResult.email_sent_at = new Date().toISOString();
+
+          // Log in audit log
+          emailLogsTable.unshift({
+            id: "log-" + Date.now(),
+            resultId: newResult.id,
+            targetEmail: newResult.studentEmail,
+            sentByUserId: "SYSTEM_AUTO",
+            status: "sent",
+            sentAt: new Date().toISOString()
+          });
+          console.log(`Auto report successfully emailed to ${newResult.studentEmail}`);
+        } catch (emailError: any) {
+          console.error("Auto report email background send failed:", emailError);
+          // Log in audit log
+          emailLogsTable.unshift({
+            id: "log-" + Date.now(),
+            resultId: newResult.id,
+            targetEmail: newResult.studentEmail,
+            sentByUserId: "SYSTEM_AUTO",
+            status: "failed",
+            sentAt: new Date().toISOString()
+          });
+        }
+      })();
+
+      // 4. Return result immediately to client so HTTP never blocks
+      res.json(newResult);
+    } catch (err: any) {
+      console.error("Error submitting result:", err);
+      res.status(500).json({ error: err.message || "Failed to register result." });
+    }
+  });
+
+  // POST Resend Manual trigger with optional override
+  app.post("/api/results/resend", async (req, res) => {
+    try {
+      const { resultId, emailOverride, senderUserId } = req.body;
+
+      if (!resultId) {
+        return res.status(400).json({ error: "resultId is required." });
+      }
+
+      const result = resultsTable.find(r => r.id === resultId);
+      if (!result) {
+        return res.status(404).json({ error: "Result row not found." });
+      }
+
+      const targetEmail = emailOverride || result.studentEmail;
+      const host = process.env.SMTP_HOST;
+      const user = process.env.SMTP_USER;
+      const pass = process.env.SMTP_PASS;
+      const isSmtpConfigured = !!(host && user && pass);
+
+      let success = false;
+      try {
+        const emailHtml = generateReportEmailHtml({
+          studentName: result.studentName,
+          studentEmail: targetEmail,
+          examTitle: result.subject,
+          scoreText: `${result.score} / ${result.total}`,
+          percentage: result.percentage,
+          integrityScore: result.integrityScore,
+          anomalyCount: result.logsCount,
+          logs: result.logs || [],
+          simulated: !isSmtpConfigured,
+          ai_feedback: result.ai_feedback
+        });
+
+        if (isSmtpConfigured) {
+          const transporter = nodemailer.createTransport({
+            host,
+            port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 587,
+            secure: process.env.SMTP_SECURE === "true",
+            auth: { user, pass }
+          });
+          const sender = process.env.SENDER_EMAIL || user || "proctorai@ssit.edu";
+          await transporter.sendMail({
+            from: `"ProctorAI - SSIT" <${sender}>`,
+            to: targetEmail,
+            subject: `[ProctorAI Ledger Manual Resend] Assessment Report - ${result.subject}`,
+            html: emailHtml
+          });
+        }
+
+        success = true;
+        result.email_sent = true;
+        result.email_sent_at = new Date().toISOString();
+
+        emailLogsTable.unshift({
+          id: "log-" + Date.now(),
+          resultId: result.id,
+          targetEmail,
+          sentByUserId: senderUserId || "FACULTY_MANUAL",
+          status: "sent",
+          sentAt: new Date().toISOString()
+        });
+
+        res.json({ success: true, message: `Manual email successfully dispatched to ${targetEmail}` });
+      } catch (err: any) {
+        console.error("Manual resend failed:", err);
+        emailLogsTable.unshift({
+          id: "log-" + Date.now(),
+          resultId: result.id,
+          targetEmail,
+          sentByUserId: senderUserId || "FACULTY_MANUAL",
+          status: "failed",
+          sentAt: new Date().toISOString()
+        });
+        res.status(500).json({ error: `Manual resend failed: ${err.message}` });
+      }
+    } catch (err: any) {
+      console.error("Error in manual resend endpoint:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Legacy fallback API Route to keep existing code safe
   app.post("/api/send-email", async (req, res) => {
     try {
       const {
@@ -368,10 +672,8 @@ Ground Rules:
       const secure = process.env.SMTP_SECURE === "true";
       const sender = process.env.SENDER_EMAIL || user || "proctorai@ssit.edu";
 
-      // Check if SMTP is configured
       const isSmtpConfigured = !!(host && user && pass);
 
-      // Render the HTML template
       const htmlContent = generateReportEmailHtml({
         studentName: studentName || "Sudar",
         studentEmail,
@@ -385,18 +687,13 @@ Ground Rules:
       });
 
       if (isSmtpConfigured) {
-        // Build real Nodemailer transporter
         const transporter = nodemailer.createTransport({
           host,
           port,
           secure,
-          auth: {
-            user,
-            pass
-          }
+          auth: { user, pass }
         });
 
-        // Send mail
         await transporter.sendMail({
           from: `"ProctorAI - SSIT" <${sender}>`,
           to: studentEmail,
@@ -411,7 +708,6 @@ Ground Rules:
           html: htmlContent
         });
       } else {
-        // Return simulated success along with HTML so frontend can offer full preview
         res.json({
           success: true,
           simulated: true,
@@ -420,7 +716,7 @@ Ground Rules:
         });
       }
     } catch (error: any) {
-      console.error("Error in send-email API:", error);
+      console.error("Error in legacy send-email API:", error);
       res.status(500).json({ error: error.message || "Failed to process or dispatch email report." });
     }
   });

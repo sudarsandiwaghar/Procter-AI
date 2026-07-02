@@ -90,7 +90,7 @@ export default function Home() {
     <div className="min-h-screen bg-[#020202] text-white selection:bg-emerald-500 selection:text-black overflow-x-hidden relative">
       {/* BACKGROUND ELEMENTS */}
       <div className="absolute top-0 left-0 w-full h-[85vh] overflow-hidden pointer-events-none z-0">
-        <LightRays raysOrigin="top-center" raysColor="#10B981" raysSpeed={1.0} lightSpread={1.4} rayLength={1.3} pulsating={true} opacity={0.3} />
+        <LightRays raysOrigin="top-center" raysColor="#10B981" raysSpeed={1.0} lightSpread={1.4} rayLength={1.3} pulsating={true} className="opacity-30" />
       </div>
       <div className="blob blob-1 fixed top-[-100px] left-[-100px] pointer-events-none z-0 bg-emerald-500/5 filter blur-[120px] w-[500px] h-[500px] rounded-full" />
       <div className="blob blob-2 fixed bottom-[-120px] right-[-120px] pointer-events-none z-0 bg-emerald-500/5 filter blur-[100px] w-[450px] h-[450px] rounded-full animate-pulse" />

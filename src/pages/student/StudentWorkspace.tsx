@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Routes, Route, Link, useNavigate, useLocation } from "react-router-dom";
 import { 
   Shield, 
@@ -21,7 +21,9 @@ import {
   HelpCircle,
   Lock,
   Phone,
-  Edit
+  X as XIcon, // avoiding duplicate X name if any
+  Edit,
+  ArrowRight
 } from "lucide-react";
 import { Log, RegisteredUser, Question, Exam } from "../../types";
 import { questionsData, SUBJECTS } from "../../questionsData";
@@ -50,6 +52,9 @@ interface StudentWorkspaceProps {
 }
 
 interface SubmittedExamResult {
+  id?: string;
+  studentEmail?: string;
+  studentName?: string;
   subject: string;
   score: number;
   total: number;
@@ -57,6 +62,10 @@ interface SubmittedExamResult {
   integrityScore: number;
   date: string;
   logsCount: number;
+  email_sent?: boolean;
+  email_sent_at?: string | null;
+  ai_feedback?: string;
+  logs?: any[];
 }
 
 export default function StudentWorkspace({
@@ -135,6 +144,26 @@ export default function StudentWorkspace({
       logsCount: 0
     }
   ]);
+
+  // Synchronize results with full-stack backend
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        const res = await fetch("/api/results");
+        if (res.ok) {
+          const data = await res.json();
+          // Filter results by current student email
+          const studentResults = data.filter((r: any) => r.studentEmail === user.email);
+          if (studentResults.length > 0) {
+            setResultsHistory(studentResults);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching results from server:", err);
+      }
+    };
+    fetchResults();
+  }, [user.email]);
 
   // Sync tab state with current sub-path
   useEffect(() => {
@@ -316,7 +345,7 @@ export default function StudentWorkspace({
   };
 
   // Submit manual
-  const handleSubmitExam = () => {
+  const handleSubmitExam = async () => {
     if (!examActive) return;
     stopCamera();
     
@@ -331,31 +360,61 @@ export default function StudentWorkspace({
     const percentage = Math.round((correct / activeQuestions.length) * 100);
     const date = new Date().toISOString().split("T")[0];
 
-    const finalResult: SubmittedExamResult = {
+    const currentSessionLogs = logs.filter(l => l.studentId === user.email);
+
+    // Build submission payload
+    const payload = {
+      studentEmail: user.email,
+      studentName: user.name,
       subject: activeSubject,
       score: correct,
       total: activeQuestions.length,
       percentage,
       integrityScore,
-      date,
-      logsCount: activeViolationsCount
+      logs: currentSessionLogs.slice(0, 8)
     };
 
-    setResultsHistory(prev => [finalResult, ...prev]);
-    setExamSubmittedResult(finalResult);
+    try {
+      const response = await fetch("/api/results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        const fullResult: SubmittedExamResult = await response.json();
+        setResultsHistory(prev => [fullResult, ...prev]);
+        setExamSubmittedResult(fullResult);
+      } else {
+        // Fallback if API fails
+        const fallbackResult: SubmittedExamResult = {
+          subject: activeSubject,
+          score: correct,
+          total: activeQuestions.length,
+          percentage,
+          integrityScore,
+          date,
+          logsCount: activeViolationsCount
+        };
+        setResultsHistory(prev => [fallbackResult, ...prev]);
+        setExamSubmittedResult(fallbackResult);
+      }
+    } catch (err) {
+      console.error("Failed to submit result to server:", err);
+      const fallbackResult: SubmittedExamResult = {
+        subject: activeSubject,
+        score: correct,
+        total: activeQuestions.length,
+        percentage,
+        integrityScore,
+        date,
+        logsCount: activeViolationsCount
+      };
+      setResultsHistory(prev => [fallbackResult, ...prev]);
+      setExamSubmittedResult(fallbackResult);
+    }
+
     setExamActive(false);
-
     triggerViolation(`Proctoring Session Locked & Finalized: ${activeSubject}`, "INFO", "Hardware Registry", "SESSION_LOCK");
-
-    // Send email report via server
-    onSendEmailReport(
-      activeSubject,
-      correct,
-      activeQuestions.length,
-      percentage,
-      integrityScore,
-      logs
-    );
   };
 
   // Auto submit on timer end
