@@ -89,7 +89,7 @@ export default function AdminLogin({ registeredUsers, onLoginSuccess }: LoginPro
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5 text-left font-space text-xs">
           <div className="space-y-2">
-            <label className="text-white/60 tracking-wider font-semibold uppercase block">Administrator Mail ID</label>
+            <label className="text-white/60 tracking-wider font-semibold uppercase block">Email ID</label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
               <input 

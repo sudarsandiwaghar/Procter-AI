@@ -502,7 +502,7 @@ export default function StudentWorkspace({
     });
 
     setRegisteredUsers(updated);
-    setProfileMessage("Profile specifics successfully secured in institutional registry!");
+    setProfileMessage("Profile specifics successfully secured!");
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
@@ -937,7 +937,7 @@ export default function StudentWorkspace({
                 <div className="space-y-4">
                   <h3 className="font-serif text-2xl font-bold text-white">My Active Core Exams</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[
                       {
                         name: "Data Structures & Algorithms",
@@ -949,6 +949,24 @@ export default function StudentWorkspace({
                         name: "Database Management Systems",
                         desc: "Covers normal forms (1NF/2NF/3NF/BCNF), relational projections, transaction isolation states, and B-Tree indexes.",
                         code: "DBMS-302",
+                        duration: "5 mins"
+                      },
+                      {
+                        name: "Operating Systems",
+                        desc: "Covers thread synchronization, CPU deadlocks, page replacement schemes, and file index systems.",
+                        code: "OS-303",
+                        duration: "5 mins"
+                      },
+                      {
+                        name: "Computer Networks",
+                        desc: "Covers TCP/IP model layers, subnet CIDR partitions, transport TLS, and network routing configurations.",
+                        code: "CN-304",
+                        duration: "5 mins"
+                      },
+                      {
+                        name: "Aptitude & Quantitative Reasoning",
+                        desc: "Covers logic distribution mechanics, permutations, dynamic timelines, speed formulas, and ratios.",
+                        code: "APT-305",
                         duration: "5 mins"
                       }
                     ].map((exam, idx) => (

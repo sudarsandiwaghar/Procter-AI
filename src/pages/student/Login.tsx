@@ -108,7 +108,7 @@ export default function StudentLogin({ registeredUsers, onLoginSuccess }: LoginP
               <label className="text-white/60 tracking-wider font-semibold uppercase block">Security Password</label>
               <button 
                 type="button"
-                onClick={() => alert("Password recovery instructions sent to your institutional registry.")}
+                onClick={() => alert("Password recovery instructions sent to your email address.")}
                 className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline"
               >
                 Forgot Password?

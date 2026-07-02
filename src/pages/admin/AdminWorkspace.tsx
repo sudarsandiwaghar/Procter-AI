@@ -232,7 +232,7 @@ export default function AdminWorkspace({
 
     const exists = registeredUsers.some(u => u.email.toLowerCase() === email.toLowerCase());
     if (exists) {
-      setUserActionMessage("This Mail ID is already registered in our systems ledger.");
+      setUserActionMessage("This Email ID is already registered in our systems ledger.");
       return;
     }
 
